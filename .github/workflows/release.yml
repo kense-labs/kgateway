@@ -96,7 +96,7 @@ jobs:
             os: macos-latest
             platform: darwin-arm64
           - target: x86_64-apple-darwin
-            os: macos-latest
+            os: macos-15-intel
             platform: darwin-x86_64
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
@@ -202,7 +202,7 @@ jobs:
           $archive = "kgateway-$version-${{ matrix.platform }}.zip"
           Compress-Archive -LiteralPath $binary -DestinationPath $archive
           $sha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -LiteralPath "$archive.sha256" -Value "$sha256  $archive" -Encoding ascii
+          Set-Content -LiteralPath "$archive.sha256" -Value "$sha256  $archive`n" -Encoding ascii -NoNewline
 
       - uses: actions/upload-artifact@v4
         with:
