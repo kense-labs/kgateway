@@ -66,7 +66,6 @@ jobs:
             gh api --method GET \
               "/repos/${GITHUB_REPOSITORY}/actions/workflows/benchmarks.yml/runs" \
               -f branch=main \
-              -f event=push \
               -f per_page=100 \
               --jq ".workflow_runs[] | select(
                 .head_sha == \"${GITHUB_SHA}\" and
@@ -301,6 +300,9 @@ jobs:
 
           cp Dockerfile bin/linux-amd64/
           cp Dockerfile bin/linux-arm64/
+
+      - name: Set up QEMU for ARM64 runtime image builds
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

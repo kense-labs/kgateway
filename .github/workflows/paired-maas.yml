@@ -19,6 +19,10 @@ on:
       gateway_revision:
         description: Full kgateway commit SHA when called from a different repository
         type: string
+      runner:
+        description: Runner label in the caller repository
+        type: string
+        default: ubuntu-24.04
       kstack_repository:
         required: true
         type: string
@@ -34,7 +38,7 @@ permissions:
 
 jobs:
   paired-maas:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
     timeout-minutes: 35
     env:
       TZ: UTC

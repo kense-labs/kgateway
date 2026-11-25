@@ -146,9 +146,7 @@ fn extract_balanced_json_object(input: &str) -> Option<&str> {
 }
 
 fn sse_total_from_complete_line(line: &str) -> Option<u64> {
-    let Some(data) = line.strip_prefix("data:") else {
-        return None;
-    };
+    let data = line.strip_prefix("data:")?;
     let data = data.trim();
     if data.is_empty() || data == "[DONE]" {
         return None;

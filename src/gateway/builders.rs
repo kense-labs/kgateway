@@ -185,6 +185,11 @@ pub fn build_scaling_state(config: &GatewayConfig) -> Option<Arc<entrypoint::Sca
     }
 }
 
+type MirrorFailoverState = (
+    HashMap<String, Arc<crate::service::TrafficMirror>>,
+    HashMap<String, Arc<crate::service::FailoverSelector>>,
+);
+
 /// Build mirror and failover state from gateway config.
 ///
 /// Missing mirror/failover targets fail closed — the same invariant as
@@ -194,10 +199,7 @@ pub fn build_mirror_failover_state(
     service_registry: &Arc<ServiceRegistry>,
     http_proxy: &Arc<HttpProxy>,
     service_http_proxies: &HashMap<String, Arc<HttpProxy>>,
-) -> Result<(
-    HashMap<String, Arc<crate::service::TrafficMirror>>,
-    HashMap<String, Arc<crate::service::FailoverSelector>>,
-)> {
+) -> Result<MirrorFailoverState> {
     let mut mirrors = HashMap::new();
     let mut failovers = HashMap::new();
 

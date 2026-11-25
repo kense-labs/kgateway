@@ -1841,21 +1841,11 @@ async fn spawn_holding_power_pair_for_execution_timeout() -> (
     let decode_address = decode_listener.local_addr().unwrap();
 
     tokio::spawn(async move {
-        let mut prefill_abort_tx = Some(prefill_abort_tx);
-        loop {
-            let (mut stream, _) = prefill_listener.accept().await.unwrap();
-            let request = read_power_request(&mut stream).await;
-            match request.path.as_str() {
-                "/internal/v1/distributed-serving/abort" => {
-                    write_json(&mut stream, abort_response(&request)).await;
-                    if let Some(tx) = prefill_abort_tx.take() {
-                        let _ = tx.send(());
-                    }
-                    break;
-                }
-                path => panic!("unexpected prefill path before abort: {path}"),
-            }
-        }
+        let (mut stream, _) = prefill_listener.accept().await.unwrap();
+        let request = read_power_request(&mut stream).await;
+        assert_eq!(request.path, "/internal/v1/distributed-serving/abort");
+        write_json(&mut stream, abort_response(&request)).await;
+        let _ = prefill_abort_tx.send(());
     });
 
     tokio::spawn(async move {
@@ -1948,7 +1938,6 @@ async fn managed_distributed_execution_timeout_aborts_both_workers_releases_admi
     let chat = {
         let client = client.clone();
         let key = key.clone();
-        let address = address;
         tokio::spawn(async move {
             client
                 .post(format!("http://{address}/v1/chat/completions"))
