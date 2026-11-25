@@ -1,25 +1,9 @@
-# Security Policy
-
-## Supported versions
-
-| Version | Supported |
-| --- | --- |
-| 1.1.x | Yes |
-| 1.0.x | Best-effort (security fixes may require upgrade to 1.1.x) |
-| &lt; 1.0 | No |
+# kgateway security policy
 
 ## Reporting a vulnerability
 
-Please report security issues privately to the A3S Lab maintainers via GitHub
-Security Advisories for [A3S-Lab/Gateway](https://github.com/A3S-Lab/Gateway)
-when available, or by contacting the maintainers through the organization
-security channel. Do not open a public issue for undisclosed vulnerabilities.
+Report undisclosed vulnerabilities privately through the repository’s GitHub Security Advisories or the maintainers’ private security channel. Do not open a public issue for an undisclosed vulnerability. Include the affected version, affected interface and observed impact.
 
-Include: affected version, reproduction steps, impact, and any proof-of-concept
-that stays within legal test environments you own or are authorized to test.
+## Trust boundaries
 
-## Scope notes
-
-Gateway is a local data plane. Cloud control-plane, Power observation delivery,
-and Box/MicroVM substrates have their own boundaries — see
-[`docs/threat-model.md`](docs/threat-model.md) and [`ROADMAP.md`](ROADMAP.md).
+The public listener handles tenant credentials. The Node API handles replica management on a dedicated listener. The kstack MaaS listener verifies both mTLS and scoped service credentials. The control plane stores Key verifiers and usage receipts. Operators provision and protect the TLS identities, signing keys and management credentials for each component.

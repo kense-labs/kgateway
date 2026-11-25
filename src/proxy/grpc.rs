@@ -177,15 +177,11 @@ impl GrpcProxy {
     ///
     /// Same private-trust surface as [`HttpProxy::try_with_timeouts_and_ca_file`]
     /// so `tls_ca_file` services activate for application/grpc, not only HTTP.
-    pub(crate) fn try_with_ca_file(ca_file: &str) -> std::result::Result<Self, String> {
-        let roots = crate::proxy::http_proxy::load_root_certs(ca_file)?;
-        let tls_config = rustls::ClientConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()
-        .map_err(|error| error.to_string())?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+    pub(crate) fn try_with_ca_file(
+        ca_file: &str,
+        identity_file: Option<&str>,
+    ) -> std::result::Result<Self, String> {
+        let tls_config = super::tls::private_client_config(ca_file, identity_file)?;
         let client = HttpsConnectorBuilder::new()
             .with_tls_config(tls_config)
             .https_or_http()
@@ -589,7 +585,7 @@ mod tests {
     fn grpc_proxy_try_with_ca_file_activates_private_trust_store() {
         let ca = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/tls/revision-1-ca.crt");
-        GrpcProxy::try_with_ca_file(ca.to_str().unwrap())
+        GrpcProxy::try_with_ca_file(ca.to_str().unwrap(), None)
             .expect("private CA gRPC TLS client must activate");
     }
 
@@ -598,7 +594,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let junk = directory.path().join("not-a-cert.pem");
         std::fs::write(&junk, b"not a certificate").unwrap();
-        let error = match GrpcProxy::try_with_ca_file(junk.to_str().unwrap()) {
+        let error = match GrpcProxy::try_with_ca_file(junk.to_str().unwrap(), None) {
             Ok(_) => panic!("junk PEM must fail gRPC private CA construction"),
             Err(error) => error,
         };

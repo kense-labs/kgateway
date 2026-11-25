@@ -53,7 +53,6 @@ impl UsageSpoolConfig {
 
     pub(crate) fn cloud_ingest_uses_mtls(&self) -> bool {
         self.cloud_ingest_client_identity_file.is_some()
-            || self.cloud_ingest_server_ca_file.is_some()
     }
 
     pub(crate) fn cloud_ingest_uses_bearer(&self) -> bool {

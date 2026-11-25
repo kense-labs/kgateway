@@ -23,9 +23,12 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 /// Managed snapshot request schema.
-pub const MANAGED_SNAPSHOT_SCHEMA: &str = "a3s.gateway.managed-snapshot.v1";
+pub const MANAGED_SNAPSHOT_SCHEMA: &str = "kgateway.managed-snapshot.v1";
+pub(crate) const LEGACY_MANAGED_SNAPSHOT_SCHEMA: &str = "a3s.gateway.managed-snapshot.v1";
 /// Managed snapshot status schema.
-pub const MANAGED_SNAPSHOT_STATUS_SCHEMA: &str = "a3s.gateway.managed-snapshot-status.v1";
+pub const MANAGED_SNAPSHOT_STATUS_SCHEMA: &str = "kgateway.managed-snapshot-status.v1";
+pub(crate) const LEGACY_MANAGED_SNAPSHOT_STATUS_SCHEMA: &str =
+    "a3s.gateway.managed-snapshot-status.v1";
 
 const MAX_ACL_BYTES: usize = 1024 * 1024;
 const MAX_VALIDITY_HOURS: i64 = 24;
@@ -874,7 +877,10 @@ fn validate_snapshot_envelope(
     snapshot: &ManagedSnapshot,
     now: DateTime<Utc>,
 ) -> std::result::Result<(), String> {
-    if snapshot.schema != MANAGED_SNAPSHOT_SCHEMA {
+    if !matches!(
+        snapshot.schema.as_str(),
+        MANAGED_SNAPSHOT_SCHEMA | LEGACY_MANAGED_SNAPSHOT_SCHEMA
+    ) {
         return Err(format!(
             "Unsupported managed snapshot schema {:?}",
             snapshot.schema
@@ -952,6 +958,9 @@ fn parse_managed_config(snapshot: &ManagedSnapshot) -> std::result::Result<Gatew
         inference.validate_managed_expiry(snapshot.expires_at)?;
         crate::inference::PowerDistributedClient::validate_credentials_from_policy(Some(inference))
             .map_err(|error| error.to_string())?;
+    }
+    if let Some(policy) = &config.platform_policy {
+        policy.validate_expiry(snapshot.issued_at, snapshot.expires_at)?;
     }
     Ok(config)
 }

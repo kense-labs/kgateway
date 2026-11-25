@@ -1,7 +1,7 @@
-use a3s_gateway::config::MiddlewareConfig;
-use a3s_gateway::middleware::{Pipeline, RequestContext};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use http::Request;
+use kgateway::config::MiddlewareConfig;
+use kgateway::middleware::{Pipeline, RequestContext};
 use std::collections::HashMap;
 use std::time::Duration;
 

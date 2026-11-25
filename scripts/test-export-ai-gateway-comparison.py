@@ -39,7 +39,7 @@ def distribution(samples: int, base: int) -> dict[str, int | float]:
 def trial_payload(product: str, trial: int) -> dict[str, object]:
     requests = 4
     tokens = 4
-    product_offset = 0 if product == "a3s-gateway" else 100
+    product_offset = 0 if product == "kgateway" else 100
     trial_offset = trial * 10
     base = 100 + product_offset + trial_offset
     goodput = 1100.0 - product_offset + trial_offset
@@ -91,13 +91,13 @@ class ExporterTests(unittest.TestCase):
         self.assertIn('stream_total_timeout = "120s"', gateway)
 
     def test_trial_validation_rejects_silent_token_loss(self) -> None:
-        payload = trial_payload("a3s-gateway", 1)
+        payload = trial_payload("kgateway", 1)
         payload["completed_tokens"] = 15
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trial.json"
             path.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "completed-token"):
-                EXPORTER.read_trial(path, "a3s-gateway", 1)
+                EXPORTER.read_trial(path, "kgateway", 1)
 
     def test_trial_validation_rejects_inconsistent_distribution_counts(self) -> None:
         payload = trial_payload("nginx", 1)
@@ -109,14 +109,14 @@ class ExporterTests(unittest.TestCase):
                 EXPORTER.read_trial(path, "nginx", 1)
 
     def test_trial_validation_rejects_combined_disconnect_and_read_delay(self) -> None:
-        payload = trial_payload("a3s-gateway", 1)
+        payload = trial_payload("kgateway", 1)
         payload["scenario"]["disconnect_after_tokens"] = 1
         payload["scenario"]["read_delay_ms"] = 50
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trial.json"
             path.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "cannot combine"):
-                EXPORTER.read_trial(path, "a3s-gateway", 1)
+                EXPORTER.read_trial(path, "kgateway", 1)
 
     def test_prompt_limit_lanes_use_target_body_bytes(self) -> None:
         self.assertIn("prompt-limit", EXPORTER.PROFILE_DETAILS)
@@ -596,7 +596,7 @@ class ExporterTests(unittest.TestCase):
                 "--commit",
                 "a" * 40,
                 "--run-url",
-                "https://github.com/A3S-Lab/Gateway/actions/runs/1",
+                "https://github.com/kense-labs/kgateway/actions/runs/1",
                 "--generated-at",
                 "2026-08-13T00:00:00Z",
                 "--runner-image",
@@ -610,7 +610,7 @@ class ExporterTests(unittest.TestCase):
                 "--kernel",
                 "Linux",
                 "--a3s-version",
-                "a3s-gateway 9.8.7-test",
+                "kgateway 9.8.7-test",
                 "--nginx-version",
                 "nginx/1.26.0",
                 "--upstream-version",
@@ -624,9 +624,9 @@ class ExporterTests(unittest.TestCase):
 
         self.assertEqual(result["schema_version"], EXPORTER.OUTPUT_SCHEMA)
         profile = result["profiles"]["stream-paced-c16"]
-        self.assertEqual(len(profile["products"]["a3s-gateway"]["trials"]), 2)
+        self.assertEqual(len(profile["products"]["kgateway"]["trials"]), 2)
         self.assertEqual(
-            profile["products"]["a3s-gateway"]["median"]["ttft"]["p50_us"],
+            profile["products"]["kgateway"]["median"]["ttft"]["p50_us"],
             119,
         )
         self.assertGreater(

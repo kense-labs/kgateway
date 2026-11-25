@@ -3,21 +3,21 @@
 set -eu
 umask 077
 
-PROGRAM="a3s-gateway"
-REPOSITORY="A3S-Lab/Gateway"
-RELEASES_URL="${A3S_GATEWAY_RELEASES_URL:-https://github.com/${REPOSITORY}/releases/download}"
-LATEST_API_URL="${A3S_GATEWAY_LATEST_API_URL:-https://api.github.com/repos/${REPOSITORY}/releases/latest}"
-VERSION="${A3S_GATEWAY_VERSION:-}"
-INSTALL_DIR="${A3S_GATEWAY_INSTALL_DIR:-}"
-PLATFORM_OVERRIDE="${A3S_GATEWAY_PLATFORM:-}"
-NO_MODIFY_PATH="${A3S_GATEWAY_NO_MODIFY_PATH:-0}"
-ALLOW_INSECURE="${A3S_GATEWAY_ALLOW_INSECURE:-0}"
+PROGRAM="kgateway"
+REPOSITORY="kense-labs/kgateway"
+RELEASES_URL="${KGATEWAY_RELEASES_URL:-https://github.com/${REPOSITORY}/releases/download}"
+LATEST_API_URL="${KGATEWAY_LATEST_API_URL:-https://api.github.com/repos/${REPOSITORY}/releases/latest}"
+VERSION="${KGATEWAY_VERSION:-}"
+INSTALL_DIR="${KGATEWAY_INSTALL_DIR:-}"
+PLATFORM_OVERRIDE="${KGATEWAY_PLATFORM:-}"
+NO_MODIFY_PATH="${KGATEWAY_NO_MODIFY_PATH:-0}"
+ALLOW_INSECURE="${KGATEWAY_ALLOW_INSECURE:-0}"
 TEMP_DIR=""
 PENDING_BINARY=""
 
 usage() {
   cat <<'USAGE'
-Install the latest A3S Gateway release for macOS or Linux.
+Install the latest kgateway release for macOS or Linux.
 
 Usage:
   install.sh [options]
@@ -29,18 +29,18 @@ Options:
   -h, --help              Show this help.
 
 Environment overrides:
-  A3S_GATEWAY_VERSION
-  A3S_GATEWAY_INSTALL_DIR
-  A3S_GATEWAY_NO_MODIFY_PATH=1
+  KGATEWAY_VERSION
+  KGATEWAY_INSTALL_DIR
+  KGATEWAY_NO_MODIFY_PATH=1
 USAGE
 }
 
 log() {
-  printf '%s\n' "a3s-gateway installer: $*"
+  printf '%s\n' "kgateway installer: $*"
 }
 
 fail() {
-  printf '%s\n' "a3s-gateway installer: error: $*" >&2
+  printf '%s\n' "kgateway installer: error: $*" >&2
   exit 1
 }
 
@@ -94,7 +94,7 @@ download() {
       curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
         --retry 3 --connect-timeout 15 --max-time 300 \
         --header 'Accept: application/vnd.github+json' \
-        --header 'User-Agent: a3s-gateway-installer' \
+        --header 'User-Agent: kgateway-installer' \
         --output "$destination" "$url"
       ;;
     *)
@@ -194,7 +194,7 @@ ensure_default_path() {
   path_line='export PATH="$HOME/.local/bin:$PATH"'
   if [ ! -f "$profile" ] || ! grep -F "$path_line" "$profile" >/dev/null 2>&1; then
     {
-      printf '\n%s\n' '# Added by A3S Gateway installer'
+      printf '\n%s\n' '# Added by kgateway installer'
       printf '%s\n' "$path_line"
     } >> "$profile"
     log "added ${INSTALL_DIR} to PATH in ${profile}; open a new shell to use it"
@@ -206,7 +206,7 @@ if [ -z "$INSTALL_DIR" ]; then
   INSTALL_DIR="${HOME}/.local/bin"
 fi
 
-TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/a3s-gateway-install.XXXXXX")
+TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kgateway-install.XXXXXX")
 
 if [ -z "$VERSION" ]; then
   release_json="${TEMP_DIR}/release.json"

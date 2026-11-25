@@ -2061,6 +2061,17 @@ async fn managed_distributed_sse_total_timeout_aborts_both_workers_releases_admi
     let (address, shutdown_tx, gateway_task) = start_test_entrypoint(state).await;
     let client = reqwest::Client::new();
 
+    // The stream deadline covers request handling, including key verification.
+    // Prime the verification cache so this case exercises the streaming bound.
+    let models = client
+        .get(format!("http://{address}/v1/models"))
+        .bearer_auth(&key)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(models.status(), StatusCode::OK);
+    let _ = models.bytes().await.unwrap();
+
     let response = client
         .post(format!("http://{address}/v1/chat/completions"))
         .bearer_auth(&key)

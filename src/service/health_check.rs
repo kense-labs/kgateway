@@ -127,30 +127,15 @@ impl Drop for HealthCheckTasks {
 /// Build the active health-check HTTP client (same surface for prepare and validate).
 fn build_health_check_client(
     timeout: Duration,
-    tls_ca_file: Option<&str>,
+    tls_files: Option<(&str, Option<&str>)>,
 ) -> Result<reqwest::Client> {
     let mut builder = reqwest::Client::builder();
-    if let Some(ca_file) = tls_ca_file {
-        let pem = std::fs::read(ca_file).map_err(|error| {
-            GatewayError::Other(format!("Failed to read health-check tls_ca_file: {error}"))
-        })?;
-        // from_pem only stores bytes under rustls-tls; from_pem_bundle parses.
-        // Empty/junk PEM must fail here — otherwise build() soft-opens with an
-        // empty private trust store and HTTPS probes only fail at runtime.
-        let certificates = reqwest::Certificate::from_pem_bundle(&pem).map_err(|error| {
-            GatewayError::Other(format!("Failed to parse health-check tls_ca_file: {error}"))
-        })?;
-        if certificates.is_empty() {
-            return Err(GatewayError::Other(format!(
-                "Failed to parse health-check tls_ca_file: no certificates found in {ca_file}"
-            )));
-        }
-        // Match the data-plane private trust store: do not fall back to
-        // public webpki roots when a service-specific CA is configured.
-        builder = builder.tls_built_in_root_certs(false);
-        for certificate in certificates {
-            builder = builder.add_root_certificate(certificate);
-        }
+    if let Some((ca_file, identity_file)) = tls_files {
+        let tls =
+            crate::proxy::tls::private_client_config(ca_file, identity_file).map_err(|error| {
+                GatewayError::Other(format!("Invalid health-check TLS configuration: {error}"))
+            })?;
+        builder = builder.use_preconfigured_tls(tls);
     }
     builder
         // A health check must classify the configured endpoint itself.
@@ -193,37 +178,17 @@ impl HealthChecker {
         )
     }
 
-    /// Create a health checker and fail if its configured HTTP client cannot be built.
-    pub fn try_new(
+    /// Create a health checker using the configured upstream trust and identity.
+    pub(crate) fn try_new(
         lb: Arc<LoadBalancer>,
         path: String,
         interval: Duration,
         timeout: Duration,
         unhealthy_threshold: u32,
         healthy_threshold: u32,
+        tls_files: Option<(&str, Option<&str>)>,
     ) -> Result<Self> {
-        Self::try_new_with_ca(
-            lb,
-            path,
-            interval,
-            timeout,
-            unhealthy_threshold,
-            healthy_threshold,
-            None,
-        )
-    }
-
-    /// Create a health checker that trusts an optional private CA for HTTPS probes.
-    pub fn try_new_with_ca(
-        lb: Arc<LoadBalancer>,
-        path: String,
-        interval: Duration,
-        timeout: Duration,
-        unhealthy_threshold: u32,
-        healthy_threshold: u32,
-        tls_ca_file: Option<&str>,
-    ) -> Result<Self> {
-        let client = build_health_check_client(timeout, tls_ca_file)?;
+        let client = build_health_check_client(timeout, tls_files)?;
         Ok(Self {
             lb,
             client: Ok(client),
@@ -244,7 +209,7 @@ impl HealthChecker {
         timeout: Duration,
         tls_ca_file: Option<&str>,
     ) -> Result<()> {
-        let _ = build_health_check_client(timeout, tls_ca_file)?;
+        let _ = build_health_check_client(timeout, tls_ca_file.map(|ca| (ca, None)))?;
         Ok(())
     }
 
@@ -430,6 +395,7 @@ mod tests {
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],
@@ -508,6 +474,7 @@ mod tests {
             Duration::from_secs(5),
             3,
             2,
+            None,
         )
         .unwrap();
         assert!(checker.client.is_ok());

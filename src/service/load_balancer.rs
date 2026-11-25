@@ -322,6 +322,7 @@ impl Backend {
             .fetch_sub(1, self.connection_ordering());
     }
 
+    #[allow(deprecated, reason = "fetch_update supports the Rust 1.88 minimum")]
     fn try_reserve_concurrency(&self) -> Option<bool> {
         let limit = self.concurrency_limit.load(Ordering::Acquire);
         if limit == 0 {
@@ -386,6 +387,12 @@ pub(crate) struct BackendConnectionGuard {
     backend: Arc<Backend>,
     shard: usize,
     concurrency_reserved: bool,
+}
+
+impl BackendConnectionGuard {
+    pub(crate) fn holds_managed_target(&self) -> bool {
+        self.backend.managed_target().is_some()
+    }
 }
 
 impl Drop for BackendConnectionGuard {

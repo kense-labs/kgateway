@@ -11,7 +11,7 @@ batch_timeout_seconds="${AI_BENCH_BATCH_TIMEOUT_SECONDS:-300}"
 binary_root="${AI_BENCH_BINARY_ROOT:-$repository_root/target/release}"
 upstream_binary="$binary_root/examples/ai_benchmark_upstream"
 load_binary="$binary_root/examples/ai_benchmark_load"
-gateway_binary="$binary_root/a3s-gateway"
+gateway_binary="$binary_root/kgateway"
 
 IFS=',' read -r -a raw_profiles <<<"$profile_csv"
 # Expand meta profile names into concrete measurement points. Do not treat a
@@ -68,7 +68,7 @@ report_failure() {
     "$line" "$benchmark_stage" "$status"
   for log in \
     "$load_log" \
-    "$output_root/a3s-gateway.log" \
+    "$output_root/kgateway.log" \
     "$output_root/nginx.log" \
     "$output_root/upstream.log" \
     "$output_root/upstream-canary.log"; do
@@ -898,7 +898,7 @@ configure_profile() {
 }
 
 product_port() {
-  if [[ "$1" == "a3s-gateway" ]]; then
+  if [[ "$1" == "kgateway" ]]; then
     printf '18101'
   else
     printf '18102'
@@ -934,17 +934,17 @@ restart_proxy_product() {
     return 1
   fi
   started=$(now_ms)
-  if [[ "$product" == "a3s-gateway" ]]; then
+  if [[ "$product" == "kgateway" ]]; then
     if [[ -n "$a3s_pid" ]]; then
       kill "$a3s_pid" 2>/dev/null || true
       wait "$a3s_pid" 2>/dev/null || true
       a3s_pid=""
     fi
-    benchmark_stage="restart A3S Gateway (normal)"
+    benchmark_stage="restart kgateway (normal)"
     "$gateway_binary" --config "$fixture_root/gateway.acl" --log-level warn \
-      >"$output_root/a3s-gateway.log" 2>&1 &
+      >"$output_root/kgateway.log" 2>&1 &
     a3s_pid=$!
-    assert_process_running "$a3s_pid" "A3S Gateway"
+    assert_process_running "$a3s_pid" "kgateway"
     wait_for_endpoint "http://127.0.0.1:18101/health"
   else
     if [[ -n "$nginx_pid" ]]; then
@@ -1081,11 +1081,11 @@ start_proxies() {
     gateway_config="$fixture_root/gateway.acl"
     nginx_config="$fixture_root/nginx.conf"
   fi
-  benchmark_stage="start A3S Gateway ($mode)"
+  benchmark_stage="start kgateway ($mode)"
   "$gateway_binary" --config "$gateway_config" --log-level warn \
-    >"$output_root/a3s-gateway.log" 2>&1 &
+    >"$output_root/kgateway.log" 2>&1 &
   a3s_pid=$!
-  assert_process_running "$a3s_pid" "A3S Gateway"
+  assert_process_running "$a3s_pid" "kgateway"
   benchmark_stage="start NGINX ($mode)"
   nginx -c "$nginx_config" -g 'daemon off;' \
     >"$output_root/nginx.log" 2>&1 &
@@ -1338,7 +1338,7 @@ command -v nginx >/dev/null
 command -v python3 >/dev/null
 command -v timeout >/dev/null
 
-benchmark_stage="validate A3S Gateway fixture"
+benchmark_stage="validate kgateway fixture"
 "$gateway_binary" validate --config "$fixture_root/gateway.acl"
 "$gateway_binary" validate --config "$fixture_root/gateway-timeout.acl"
 "$gateway_binary" validate --config "$fixture_root/gateway-refused.acl"
@@ -1387,14 +1387,14 @@ start_proxies normal
 
 for trial in $(seq 1 "$trials"); do
   if (( trial % 2 == 1 )); then
-    order=(a3s-gateway nginx)
+    order=(kgateway nginx)
   else
-    order=(nginx a3s-gateway)
+    order=(nginx kgateway)
   fi
   for profile in "${profiles[@]}"; do
     configure_profile "$profile"
     if [[ "$a3s_only" == "1" ]]; then
-      products=(a3s-gateway)
+      products=(kgateway)
     else
       products=("${order[@]}")
     fi

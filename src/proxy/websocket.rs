@@ -206,16 +206,9 @@ pub fn compute_accept_key(key: &str) -> String {
 /// missing or contains no certificates — the same surface as HTTP and gRPC.
 pub(crate) fn private_ca_client_config(
     ca_file: &str,
+    identity_file: Option<&str>,
 ) -> std::result::Result<Arc<rustls::ClientConfig>, String> {
-    let roots = crate::proxy::http_proxy::load_root_certs(ca_file)?;
-    let config = rustls::ClientConfig::builder_with_provider(Arc::new(
-        rustls::crypto::ring::default_provider(),
-    ))
-    .with_safe_default_protocol_versions()
-    .map_err(|error| error.to_string())?
-    .with_root_certificates(roots)
-    .with_no_client_auth();
-    Ok(Arc::new(config))
+    super::tls::private_client_config(ca_file, identity_file).map(Arc::new)
 }
 
 /// Complete a bounded upstream opening handshake using trusted proxy headers.

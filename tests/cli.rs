@@ -11,7 +11,7 @@ struct TestConfig {
 }
 
 fn gateway_bin() -> &'static str {
-    env!("CARGO_BIN_EXE_a3s-gateway")
+    env!("CARGO_BIN_EXE_kgateway")
 }
 
 fn write_config(extension: &str) -> TestConfig {
@@ -83,7 +83,7 @@ management {
   enabled     = true
   address     = "127.0.0.1:19090"
   path_prefix = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_ADMIN_TOKEN"
   allowed_ips = ["127.0.0.1"]
 }
 "#,
@@ -93,7 +93,11 @@ management {
 }
 
 fn run(args: &[&str]) -> Output {
-    Command::new(gateway_bin()).args(args).output().unwrap()
+    Command::new(gateway_bin())
+        .env("KGATEWAY_ADMIN_TOKEN", "cli-fixture-token")
+        .args(args)
+        .output()
+        .unwrap()
 }
 
 fn write_skill(workspace: &std::path::Path, name: &str, description: &str) -> PathBuf {

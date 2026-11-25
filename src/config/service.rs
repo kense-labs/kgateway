@@ -200,6 +200,10 @@ pub struct LoadBalancerConfig {
     /// backends. Plain `http://` servers ignore this setting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tls_ca_file: Option<String>,
+
+    /// PEM certificate chain and private key to authenticate to HTTPS upstreams.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_client_identity_file: Option<String>,
 }
 
 pub(crate) fn default_connect_timeout() -> String {

@@ -2,8 +2,8 @@
 
 use super::persistence::StoredRecord;
 use super::{
-    PersistedRecord, UsageCursor, UsageSpoolError, UsageSpoolRecord, MAX_RECORD_LINE_BYTES,
-    MAX_USAGE_EVENT_BYTES, RECORD_SCHEMA,
+    PersistedRecord, UsageCursor, UsageSpoolError, UsageSpoolRecord, LEGACY_RECORD_SCHEMA,
+    MAX_RECORD_LINE_BYTES, MAX_USAGE_EVENT_BYTES, RECORD_SCHEMA,
 };
 use base64::Engine;
 use sha2::{Digest, Sha256};
@@ -109,7 +109,7 @@ pub(super) fn decode(
         serde_json::from_slice(&line[..line.len() - 1]).map_err(|error| {
             UsageSpoolError::corrupt(format!("usage record is invalid JSON: {error}"))
         })?;
-    if record.schema != RECORD_SCHEMA
+    if !matches!(record.schema.as_str(), RECORD_SCHEMA | LEGACY_RECORD_SCHEMA)
         || record.gateway_id != gateway_id
         || record.boot_epoch != cursor.boot_epoch
         || record.sequence != cursor.sequence

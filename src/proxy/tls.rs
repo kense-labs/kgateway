@@ -170,6 +170,28 @@ fn load_private_key_from_pem(pem: &str) -> Result<PrivateKeyDer<'static>> {
         .map_err(|e| GatewayError::Tls(format!("Failed to parse private key PEM: {e}")))
 }
 
+pub(crate) fn private_client_config(
+    ca_file: &str,
+    identity_file: Option<&str>,
+) -> std::result::Result<rustls::ClientConfig, String> {
+    let roots = super::http_proxy::load_root_certs(ca_file)?;
+    let builder = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .map_err(|error| error.to_string())?
+    .with_root_certificates(roots);
+    let Some(identity) = identity_file else {
+        return Ok(builder.with_no_client_auth());
+    };
+    let chain =
+        load_cert_chain(identity, "tls_client_identity_file").map_err(|error| error.to_string())?;
+    let key = load_private_key(identity).map_err(|error| error.to_string())?;
+    builder
+        .with_client_auth_cert(chain, key)
+        .map_err(|error| error.to_string())
+}
+
 fn tls_protocol_versions(
     min_version: &str,
 ) -> Result<Vec<&'static rustls::SupportedProtocolVersion>> {

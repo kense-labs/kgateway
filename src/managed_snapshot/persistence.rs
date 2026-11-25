@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
-pub(super) const MANAGED_SNAPSHOT_JOURNAL_SCHEMA: &str = "a3s.gateway.managed-snapshot-journal.v1";
+pub(super) const MANAGED_SNAPSHOT_JOURNAL_SCHEMA: &str = "kgateway.managed-snapshot-journal.v1";
+const LEGACY_JOURNAL_SCHEMA: &str = "a3s.gateway.managed-snapshot-journal.v1";
 
 const MAX_JOURNAL_BYTES: u64 = super::MAX_ACL_BYTES as u64 * 6 + 64 * 1024;
 
@@ -52,7 +53,10 @@ impl ManagedSnapshotJournal {
     }
 
     pub(super) fn validate_shape(&self) -> std::result::Result<(), String> {
-        if self.schema != MANAGED_SNAPSHOT_JOURNAL_SCHEMA {
+        if !matches!(
+            self.schema.as_str(),
+            MANAGED_SNAPSHOT_JOURNAL_SCHEMA | LEGACY_JOURNAL_SCHEMA
+        ) {
             return Err(format!(
                 "unsupported managed snapshot journal schema {:?}",
                 self.schema

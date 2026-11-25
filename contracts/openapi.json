@@ -1,0 +1,101 @@
+{
+  "components": {
+    "securitySchemes": {
+      "KenseDelegation": {
+        "bearerFormat": "Kense delegation ticket",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "KenseKey": {
+        "bearerFormat": "Kense Key",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "kgateway registered API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/models": {
+      "get": {
+        "operationId": "maas.models.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "object": {
+                      "const": "list"
+                    }
+                  },
+                  "required": [
+                    "object",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Authorized OpenAI model list"
+          },
+          "401": {
+            "description": "Invalid or expired Kense credential"
+          },
+          "403": {
+            "description": "Credential scope does not allow the operation"
+          },
+          "429": {
+            "description": "Request allowance exhausted"
+          },
+          "503": {
+            "description": "Admission or upstream unavailable"
+          }
+        },
+        "security": [
+          {
+            "KenseKey": []
+          }
+        ],
+        "summary": "List models authorized for this Kense Key",
+        "x-kense": {
+          "audit": "async",
+          "meteringUnits": [
+            "requests",
+            "egress_bytes"
+          ],
+          "protocol": "openai",
+          "quotaDimensions": [
+            "tenant",
+            "project",
+            "env"
+          ],
+          "resourceUrns": [
+            "urn:plat:maas:models"
+          ],
+          "slo": {
+            "availability": 0.999,
+            "p99_ms": 1000
+          }
+        }
+      }
+    }
+  }
+}

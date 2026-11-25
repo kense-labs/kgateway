@@ -19,10 +19,12 @@ use uuid::Uuid;
 ///
 /// Must stay identical to Cloud's `INFERENCE_USAGE_BATCH_SCHEMA_V1`.
 pub(crate) const USAGE_INGEST_BATCH_SCHEMA: &str = "a3s.gateway.usage-batch.v1";
+const PLATFORM_USAGE_BATCH: &str = "kgateway.usage-batch.v1";
 /// Wire schema for Cloud's batch receipt (highest-contiguous ACK + gaps).
 ///
 /// Must stay identical to Cloud's `INFERENCE_USAGE_RECEIPT_SCHEMA_V1`.
 pub(crate) const USAGE_INGEST_ACK_SCHEMA: &str = "a3s.gateway.usage-batch-receipt.v1";
+const PLATFORM_USAGE_ACK: &str = "kgateway.usage-batch-receipt.v1";
 
 /// One durable spool record as carried in an ingest batch.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -127,8 +129,19 @@ impl UsageIngestBatch {
         self.records.last().map(|record| record.cursor)
     }
 
+    pub(crate) fn receipt_schema(&self) -> &'static str {
+        if self.schema == PLATFORM_USAGE_BATCH {
+            PLATFORM_USAGE_ACK
+        } else {
+            USAGE_INGEST_ACK_SCHEMA
+        }
+    }
+
     pub(crate) fn validate(&self) -> Result<(), UsageIngestError> {
-        if self.schema != USAGE_INGEST_BATCH_SCHEMA {
+        if !matches!(
+            self.schema.as_str(),
+            USAGE_INGEST_BATCH_SCHEMA | PLATFORM_USAGE_BATCH
+        ) {
             return Err(UsageIngestError::Contract {
                 reason: format!("unexpected batch schema '{}'", self.schema),
             });
@@ -214,7 +227,7 @@ impl UsageIngestAck {
         batch: &UsageIngestBatch,
     ) -> Result<(), UsageIngestError> {
         batch.validate()?;
-        if self.schema != USAGE_INGEST_ACK_SCHEMA {
+        if self.schema != batch.receipt_schema() {
             return Err(UsageIngestError::Contract {
                 reason: format!("unexpected receipt schema '{}'", self.schema),
             });
@@ -282,6 +295,7 @@ pub(crate) struct UsageCloudUploader {
     spool: Arc<UsageSpool>,
     gateway_id: Uuid,
     batch_limit: usize,
+    batch_schema: &'static str,
 }
 
 impl UsageCloudUploader {
@@ -290,7 +304,13 @@ impl UsageCloudUploader {
             spool,
             gateway_id,
             batch_limit: batch_limit.max(1),
+            batch_schema: USAGE_INGEST_BATCH_SCHEMA,
         }
+    }
+
+    pub(crate) fn with_platform_contract(mut self) -> Self {
+        self.batch_schema = PLATFORM_USAGE_BATCH;
+        self
     }
 
     /// Upload one batch when records are pending. Returns `None` when idle or
@@ -304,7 +324,8 @@ impl UsageCloudUploader {
         if records.is_empty() {
             return Ok(None);
         }
-        let batch = UsageIngestBatch::from_records(self.gateway_id, after, &records);
+        let mut batch = UsageIngestBatch::from_records(self.gateway_id, after, &records);
+        batch.schema = self.batch_schema.to_owned();
         batch.validate()?;
         let ack = transport.submit_batch(batch.clone()).await?;
         ack.validate_against_batch(&batch)?;

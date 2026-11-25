@@ -47,10 +47,15 @@ pub(super) async fn handle_apply(
         }
     };
 
-    let result = state
+    let legacy = snapshot.schema == crate::managed_snapshot::LEGACY_MANAGED_SNAPSHOT_SCHEMA;
+    let mut result = state
         .managed_snapshots
         .apply(snapshot, state.reload_managed_snapshot.as_ref())
         .await;
+    if legacy {
+        result.status.schema =
+            crate::managed_snapshot::LEGACY_MANAGED_SNAPSHOT_STATUS_SCHEMA.to_owned();
+    }
     let reason = result
         .status
         .reason

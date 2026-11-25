@@ -1,0 +1,7 @@
+services "maas" {
+  load_balancer {
+    tls_ca_file = "/run/kense/tls/platform-ca.pem"
+    tls_client_identity_file = "/run/kense/tls/maas-client.pem"
+    servers = [{ url = "https://kstack:9445" }]
+  }
+}

@@ -12,7 +12,7 @@ async fn test_gateway_lifecycle() {
 
     // Health check
     let health = gw.health();
-    assert_eq!(health.state, a3s_gateway::GatewayState::Running);
+    assert_eq!(health.state, kgateway::GatewayState::Running);
 
     gw.shutdown().await;
     assert!(gw.is_shutdown());
@@ -435,6 +435,7 @@ async fn test_path_prefix_routing() {
                 health_check: None,
                 sticky: None,
             tls_ca_file: None,
+            tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],

@@ -133,7 +133,7 @@ async fn partial_closed_epoch_is_compacted_without_reencoding_retained_records()
     assert_eq!(compacted_lines[1], retained_line);
     let header: serde_json::Value =
         serde_json::from_slice(&compacted_lines[0][..compacted_lines[0].len() - 1]).unwrap();
-    assert_eq!(header["schema"], "a3s.gateway.usage-spool-segment.v2");
+    assert_eq!(header["schema"], "kgateway.usage-spool-segment.v2");
     assert_eq!(header["first_sequence"], 2);
     let manifest = read_manifest(directory.path()).await;
     let descriptor = manifest["epochs"]

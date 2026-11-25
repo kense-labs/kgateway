@@ -144,21 +144,22 @@ pub(crate) async fn start(
 
             let current_upstream = proxy.session_upstream(client_addr);
             let candidates = super::backend_candidates_for_service(&state, &service_name);
-            let sticky_upstream = current_upstream.filter(|current| {
+            let sticky_upstream = current_upstream.and_then(|(current, managed)| {
                 let matching: Vec<_> = candidates
                     .iter()
                     .filter(|backend| {
                         crate::proxy::tcp::extract_address(&backend.url) == current.as_str()
                     })
                     .collect();
-                if matching.is_empty() {
+                let keep = if matching.is_empty() {
                     // Exact generation left the live registry: keep the
                     // established session pinned until timeout so drain can
                     // finish. New clients still select admitting backends.
-                    true
+                    managed
                 } else {
                     matching.iter().any(|backend| backend.is_healthy())
-                }
+                };
+                keep.then_some(current)
             });
             let selected = if let Some(upstream_address) = sticky_upstream {
                 Some((upstream_address, None, None))

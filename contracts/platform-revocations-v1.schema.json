@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kgateway:platform-revocations:v1",
+  "title": "kgateway replica revocation update",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "gateway_id", "sequence", "issued_at", "valid_until", "changes"],
+  "properties": {
+    "schema": { "const": "kgateway.platform-revocations.v1" },
+    "gateway_id": { "type": "string", "format": "uuid" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "valid_until": { "type": "string", "format": "date-time" },
+    "more": { "type": "boolean", "default": false },
+    "changes": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subject", "through_generation"],
+        "properties": {
+          "subject": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" },
+          "through_generation": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

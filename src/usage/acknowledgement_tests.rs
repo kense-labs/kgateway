@@ -333,7 +333,7 @@ async fn legacy_manifest_migrates_without_losing_retained_records() {
     assert_eq!(spool.status().oldest_retained_cursor, Some(cursor));
     assert_eq!(spool.read_batch(None, 10).await.unwrap()[0].cursor, cursor);
     let migrated = read_manifest(directory.path()).await;
-    assert_eq!(migrated["schema"], "a3s.gateway.usage-spool-manifest.v3");
+    assert_eq!(migrated["schema"], "kgateway.usage-spool-manifest.v3");
     assert_eq!(
         migrated["acknowledged_through"]["sequence"],
         "ffffffffffffffff"
@@ -381,7 +381,7 @@ async fn v2_manifest_migrates_to_v3_without_losing_acknowledgement() {
         second
     );
     let migrated = read_manifest(directory.path()).await;
-    assert_eq!(migrated["schema"], "a3s.gateway.usage-spool-manifest.v3");
+    assert_eq!(migrated["schema"], "kgateway.usage-spool-manifest.v3");
     assert_eq!(migrated["epochs"][0]["first_sequence"], "0000000000000002");
     assert_eq!(
         migrated["epochs"][0]["compacted_last_sequence"],

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kgateway:maas-usage:v1",
+  "title": "kstack authoritative MaaS usage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "request_id", "reservation_id", "trace_id", "tenant", "project",
+    "env", "urn", "operation", "status", "outcome", "tokens"
+  ],
+  "properties": {
+    "schema": { "const": "kgateway.maas-usage.v1" },
+    "request_id": { "type": "string", "format": "uuid" },
+    "reservation_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "batch_line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "reservation_id", "line"],
+      "properties": {
+        "request_id": { "type": "string", "format": "uuid" },
+        "reservation_id": { "type": "string", "format": "uuid" },
+        "line": { "type": "integer", "minimum": 1, "maximum": 50000 }
+      }
+    },
+    "tenant": { "$ref": "#/$defs/identifier" },
+    "project": { "$ref": "#/$defs/identifier" },
+    "env": { "$ref": "#/$defs/identifier" },
+    "urn": { "type": "string", "pattern": "^urn:plat:maas:model:[A-Za-z0-9._:-]{1,128}$" },
+    "operation": {
+      "enum": ["maas.chat.create", "maas.completions.create", "maas.embeddings.create"]
+    },
+    "status": { "oneOf": [{ "const": 0 }, { "type": "integer", "minimum": 100, "maximum": 599 }] },
+    "outcome": { "enum": ["ok", "upstream_error", "client_closed", "truncated", "unknown", "not-dispatched"] },
+    "tokens": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["prompt", "completion"],
+          "properties": {
+            "prompt": { "type": "integer", "minimum": 0 },
+            "completion": { "type": "integer", "minimum": 0 },
+            "cached": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" }
+  }
+}

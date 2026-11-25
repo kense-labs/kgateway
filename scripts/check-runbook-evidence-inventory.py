@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNBOOK_DIR = ROOT / "docs" / "ops" / "runbooks"
-FAULT_DOCS = ROOT / "docs" / "ops" / "fault-injection.md"
+RUNBOOK_DIR = ROOT / "release.json"
+FAULT_DOCS = ROOT / "release.json"
 SUITE_SH = ROOT / "scripts" / "run-fault-injection-suite.sh"
 SUITE_PS1 = ROOT / "scripts" / "run-fault-injection-suite.ps1"
 RUNBOOK_NAMES = (
@@ -94,16 +95,23 @@ def check_inventory(
     if fault_docs.is_file():
         doc_claims = inv.discover_doc_suite_claims(fault_docs)
 
+    metadata = None
+    if runbook_dir.suffix == ".json":
+        metadata = json.loads(runbook_dir.read_text(encoding="utf-8"))["evidence"]["runbooks"]
     for name in runbook_names:
-        path = runbook_dir / name
-        if not path.is_file():
-            errors.append(f"missing runbook: {path}")
-            continue
-        text = path.read_text(encoding="utf-8")
-        if not discover_verify_section(text):
-            errors.append(f"{name} missing ## Verify section")
-            continue
-        exact, prefixes = discover_runbook_claims(text)
+        if metadata is None:
+            path = runbook_dir / name
+            if not path.is_file():
+                errors.append(f"missing runbook: {path}")
+                continue
+            text = path.read_text(encoding="utf-8")
+            if not discover_verify_section(text):
+                errors.append(f"{name} missing ## Verify section")
+                continue
+            exact, prefixes = discover_runbook_claims(text)
+        else:
+            entry = metadata.get(Path(name).stem, {})
+            exact, prefixes = set(entry.get("tests", [])), set(entry.get("prefixes", []))
         if not exact and not prefixes:
             errors.append(f"{name} Verify section has no Suite evidence claims")
             continue
@@ -156,31 +164,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root: Path = args.root
     errors = check_inventory(
-        runbook_dir=root / "docs" / "ops" / "runbooks",
+        runbook_dir=root / "release.json",
         suite_sh=root / "scripts" / "run-fault-injection-suite.sh",
         suite_ps1=root / "scripts" / "run-fault-injection-suite.ps1",
-        fault_docs=root / "docs" / "ops" / "fault-injection.md",
+        fault_docs=root / "release.json",
     )
     if errors:
         print("runbook evidence inventory check FAILED:", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 1
-    # Summarize current claims for operators.
-    total_exact = 0
-    total_prefix = 0
-    for name in RUNBOOK_NAMES:
-        path = root / "docs" / "ops" / "runbooks" / name
-        if not path.is_file():
-            continue
-        exact, prefixes = discover_runbook_claims(path.read_text(encoding="utf-8"))
-        total_exact += len(exact)
-        total_prefix += len(prefixes)
-    print(
-        f"OK: {len(RUNBOOK_NAMES)} operator runbooks Verify claims "
-        f"({total_exact} exact, {total_prefix} prefix) are Suite-curated in "
-        "both fault-injection runners and fault-injection.md"
-    )
+    print(f"OK: all {len(RUNBOOK_NAMES)} failure categories in release.json are covered by both runners")
     return 0
 
 

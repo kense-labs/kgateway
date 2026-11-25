@@ -13,55 +13,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "a3s-gateway"
-version = "1.1.1"
-dependencies = [
- "a3s-acl",
- "a3s-sentry",
- "a3s-updater",
- "arc-swap",
- "argon2",
- "async-trait",
- "base64",
- "brotli",
- "bytes",
- "chrono",
- "clap",
- "criterion",
- "flate2",
- "fs2",
- "futures-util",
- "http",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "ipnet",
- "jsonwebtoken",
- "k8s-openapi",
- "kube",
- "notify",
- "pin-project-lite",
- "redis",
- "reqwest",
- "ring",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-rustls",
- "tokio-test",
- "tokio-tungstenite",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "a3s-sentry"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1585,6 +1536,55 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "kgateway"
+version = "1.1.1"
+dependencies = [
+ "a3s-acl",
+ "a3s-sentry",
+ "a3s-updater",
+ "arc-swap",
+ "argon2",
+ "async-trait",
+ "base64",
+ "brotli",
+ "bytes",
+ "chrono",
+ "clap",
+ "criterion",
+ "flate2",
+ "fs2",
+ "futures-util",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "ipnet",
+ "jsonwebtoken",
+ "k8s-openapi",
+ "kube",
+ "notify",
+ "pin-project-lite",
+ "redis",
+ "reqwest",
+ "ring",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-rustls",
+ "tokio-test",
+ "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
 ]
 
 [[package]]

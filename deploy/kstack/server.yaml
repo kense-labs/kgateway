@@ -1,0 +1,18 @@
+listen:
+  console:
+    - "0.0.0.0:8800"
+data_dir: /var/lib/kstack
+auto_check_updates: false
+usage_report: false
+disable_legacy_gateway: true
+maas:
+  addr: "0.0.0.0:9445"
+  tls_cert_file: /run/kense/tls/maas.crt
+  tls_key_file: /run/kense/tls/maas.key
+  client_ca_file: /run/kense/tls/gateway-client-ca.pem
+  token_issuer: "urn:plat:identity:kense"
+  token_public_keys:
+    gateway-1: /run/kense/tls/gateway-1.pem
+  usage_endpoint: "https://control-plane:9443/v1/maas-usage"
+  usage_token_env: KSTACK_MAAS_USAGE_TOKEN
+  usage_ca_file: /run/kense/tls/platform-ca.pem

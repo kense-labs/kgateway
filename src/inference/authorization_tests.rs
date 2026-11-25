@@ -14,7 +14,7 @@ fn key(character: char) -> String {
 }
 
 fn verifier(secret: &str) -> String {
-    let salt = SaltString::encode_b64(b"a3s-gateway-test").unwrap();
+    let salt = SaltString::encode_b64(b"kgateway-test").unwrap();
     Argon2::default()
         .hash_password(secret.as_bytes(), &salt)
         .unwrap()

@@ -1,4 +1,4 @@
-//! Configuration types for A3S Gateway
+//! Configuration types for kgateway
 //!
 //! Defines the configuration model following Traefik's
 //! entrypoint → router → middleware → service architecture.
@@ -16,6 +16,7 @@ mod static_bundle;
 mod usage;
 
 pub use entrypoint::{EntrypointConfig, Protocol, TlsConfig};
+pub(crate) use inference::validate_argon2id_verifier;
 pub use inference::{
     InferenceConfig, InferenceCredentialConfig, InferenceDistributedServingConfig,
     InferenceEndpoint, InferenceGrantConfig, InferenceLimitsConfig, InferenceModelConfig,
@@ -85,6 +86,9 @@ pub struct GatewayConfig {
     /// Optional Cloud-projected native inference policy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inference: Option<InferenceConfig>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platform_policy: Option<crate::platform::PlatformPolicy>,
 
     /// Entrypoints: named listeners (e.g., "web" → 0.0.0.0:80)
     #[serde(default)]
@@ -198,6 +202,7 @@ impl GatewayConfig {
         custom_middlewares: &std::collections::HashSet<String>,
     ) -> Result<()> {
         self.validate_mode_constraints()?;
+        crate::platform::validate(self)?;
         // Compile every route during configuration validation. This keeps
         // malformed matcher syntax out of startup/reload side effects and
         // makes `config validate` equivalent to the runtime route compiler.
@@ -597,6 +602,30 @@ impl GatewayConfig {
                 })?;
             }
 
+            if let Some(identity) = svc.load_balancer.tls_client_identity_file.as_deref() {
+                let ca = svc.load_balancer.tls_ca_file.as_deref().ok_or_else(|| {
+                    GatewayError::Config(format!(
+                        "Service '{name}' sets tls_client_identity_file without tls_ca_file"
+                    ))
+                })?;
+                if svc
+                    .load_balancer
+                    .servers
+                    .iter()
+                    .chain(svc.revisions.iter().flat_map(|revision| &revision.servers))
+                    .any(|server| !server.url.starts_with("https://"))
+                {
+                    return Err(GatewayError::Config(format!(
+                        "Service '{name}' tls_client_identity_file requires all servers to use https://"
+                    )));
+                }
+                crate::proxy::tls::private_client_config(ca, Some(identity)).map_err(|error| {
+                    GatewayError::Config(format!(
+                        "Invalid TLS client identity for service '{name}': {error}"
+                    ))
+                })?;
+            }
+
             if let Some(mirror) = &svc.mirror {
                 if !self.services.contains_key(&mirror.service) {
                     return Err(GatewayError::Config(format!(
@@ -928,6 +957,7 @@ impl Default for GatewayConfig {
             mode: OperatingMode::default(),
             managed: ManagedConfig::default(),
             inference: None,
+            platform_policy: None,
             entrypoints,
             routers: HashMap::new(),
             services: HashMap::new(),
@@ -958,6 +988,9 @@ pub struct ManagedConfig {
     /// Optional node-local durable usage spool.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage_spool: Option<UsageSpoolConfig>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platform: Option<crate::platform::PlatformBootstrap>,
 }
 
 /// Dedicated node API listener configuration.
@@ -1065,7 +1098,7 @@ fn default_management_path_prefix() -> String {
 }
 
 fn default_management_auth_token_env() -> Option<String> {
-    Some("A3S_GATEWAY_ADMIN_TOKEN".to_string())
+    Some("KGATEWAY_ADMIN_TOKEN".to_string())
 }
 
 fn default_management_allowed_ips() -> Vec<String> {

@@ -1,8 +1,11 @@
-use a3s_gateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+#[path = "support/node_auth.rs"]
+mod node_auth;
+
 use chrono::{Duration, Utc};
 use futures_util::{SinkExt, StreamExt};
 use http::header::{CONNECTION, CONTENT_TYPE, HOST};
 use http::HeaderValue;
+use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, RootCertStore};
@@ -37,8 +40,9 @@ struct GatewayProcess {
 
 impl GatewayProcess {
     fn start(config_path: &Path) -> Self {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_a3s-gateway"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_kgateway"));
         command
+            .env(node_auth::TOKEN_ENV, node_auth::TOKEN)
             .arg("--config")
             .arg(config_path)
             .arg("--log-level")
@@ -64,6 +68,7 @@ impl GatewayProcess {
                 .get(format!(
                     "http://127.0.0.1:{management_port}/api/gateway/health"
                 ))
+                .bearer_auth(node_auth::TOKEN)
                 .send()
                 .await
             {
@@ -203,7 +208,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 
@@ -300,7 +305,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 
@@ -342,6 +347,7 @@ async fn apply(
         .post(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/apply"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .json(snapshot)
         .send()
         .await
@@ -360,6 +366,7 @@ async fn exact_status(
         .get(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/status"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .query(&[
             ("gateway_id", snapshot.gateway_id.to_string()),
             ("revision", snapshot.revision.to_string()),
@@ -381,6 +388,7 @@ fn tls_http_client() -> reqwest::Client {
             .unwrap();
     reqwest::Client::builder()
         .add_root_certificate(certificate)
+        .http1_only()
         .timeout(StdDuration::from_secs(3))
         .build()
         .unwrap()
@@ -568,7 +576,7 @@ async fn real_gateway_recovers_exact_managed_tls_protocol_snapshot_after_process
     assert!(rejected
         .reason
         .as_deref()
-        .is_some_and(|reason| reason.contains("unknown service")));
+        .is_some_and(|reason| reason.contains("missing-service")));
     assert!(
         exact_status(&management_client, management_port, &snapshot_v1)
             .await

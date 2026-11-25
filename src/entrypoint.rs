@@ -358,6 +358,7 @@ pub struct GatewayState {
     /// Route plans in the same order as `router_table` runtime indices.
     pub route_plans: Box<[RoutePlan]>,
     pub service_registry: Arc<ServiceRegistry>,
+    pub(crate) platform: Option<Arc<crate::platform::Admission>>,
     /// Optional exact-snapshot inference authorization runtime.
     pub inference_authorizer: Option<Arc<InferenceAuthorizer>>,
     /// Gateway-owned application service for authenticated Power P/D calls.
@@ -914,6 +915,27 @@ async fn handle_http_request(
             error_response(500, "Internal server error"),
         ));
     };
+    let platform_auth = if let Some(platform) = state.platform.as_ref() {
+        if is_ws || is_grpc {
+            return Ok(reject_platform(
+                &state,
+                access_log,
+                crate::platform::Rejection::UnknownOperation,
+            ));
+        }
+        match platform
+            .authenticate(&route.router_name, req.method(), req.uri(), req.headers())
+            .await
+        {
+            Ok(authenticated) => {
+                crate::platform::strip_client_identity(req.headers_mut());
+                Some(authenticated)
+            }
+            Err(error) => return Ok(reject_platform(&state, access_log, error)),
+        }
+    } else {
+        None
+    };
     let static_bundle = route_plan.static_bundle.clone();
     if static_bundle.is_some() && (is_ws || is_grpc) {
         return Ok(finish_access_log(
@@ -922,6 +944,7 @@ async fn handle_http_request(
         ));
     }
     let direct_http = route_plan.direct_http_eligible
+        && platform_auth.is_none()
         && static_bundle.is_none()
         && inference_authorizer.is_none()
         && !state.metrics_enabled
@@ -1224,8 +1247,12 @@ async fn handle_http_request(
     // keeps its streaming path. Requests that already require buffering defer
     // sampling until service resolution; managed inference can replace the
     // route's placeholder service after parsing the OpenAI body.
-    let buffers_without_mirror =
-        is_sse || openai_profile.is_some_and(OpenAiRequestProfile::requires_json_body);
+    let rpc_auth = platform_auth
+        .as_ref()
+        .filter(|auth| auth.has_rpc_selector());
+    let buffers_without_mirror = rpc_auth.is_some()
+        || is_sse
+        || openai_profile.is_some_and(OpenAiRequestProfile::requires_json_body);
     let mut selected_mirror = if buffers_without_mirror {
         None
     } else {
@@ -1259,6 +1286,7 @@ async fn handle_http_request(
     let buffered_body_limit =
         request_body_limit.or(needs_buffered_body.then_some(DEFAULT_BUFFERED_REQUEST_BODY_LIMIT));
 
+    let mut platform_resource = None;
     let (body_bytes, streaming_body) = if openai_profile
         .is_some_and(OpenAiRequestProfile::requires_json_body)
     {
@@ -1307,6 +1335,17 @@ async fn handle_http_request(
         };
         match collected {
             Ok(request) => {
+                if let Some(authenticated) = platform_auth
+                    .as_ref()
+                    .filter(|auth| auth.has_model_selector())
+                {
+                    if let Err(error) = authenticated.authorize_model(request.model_alias()) {
+                        return Ok(reject_platform(&state, access_log, error));
+                    }
+                    platform_resource = Some(crate::platform::SelectedResource::Model(
+                        request.model_alias().to_owned(),
+                    ));
+                }
                 is_sse |= openai_profile.is_some_and(OpenAiRequestProfile::supports_streaming)
                     && request.stream_requested();
                 let body = if let Some((authorizer, authenticated)) = &authenticated_inference {
@@ -1479,7 +1518,12 @@ async fn handle_http_request(
             )
             .await);
         };
-        let collected = match collect_request_body_up_to(body, limit).await {
+        let collection_limit = if rpc_auth.is_some() {
+            limit.min(crate::platform::MAX_RPC_BYTES)
+        } else {
+            limit
+        };
+        let mut collected = match collect_request_body_up_to(body, collection_limit).await {
             Ok(body) => body,
             Err(RequestBodyCollectionError::TooLarge) => {
                 return Ok(finish_native_response(
@@ -1506,10 +1550,75 @@ async fn handle_http_request(
                 .await);
             }
         };
+        if let Some(auth) = rpc_auth {
+            let (body, selected) = match auth.authorize_rpc(&req_parts.headers, &collected) {
+                Ok(result) => result,
+                Err(error) => return Ok(reject_platform(&state, access_log, error)),
+            };
+            collected = body;
+            platform_resource = Some(selected);
+            req_parts.headers.remove(http::header::CONTENT_LENGTH);
+            req_parts.headers.remove(http::header::TRANSFER_ENCODING);
+        }
         (collected, None)
     } else {
         (Bytes::new(), Some(body))
     };
+
+    let mut mcp_session = if let Some(auth) = &platform_auth {
+        match auth.mcp_session(platform_resource.as_ref(), &mut req_parts.headers) {
+            Ok(session) => session,
+            Err(error) => return Ok(reject_platform(&state, access_log, error)),
+        }
+    } else {
+        None
+    };
+
+    if let Some(body) = platform_resource
+        .as_mut()
+        .and_then(crate::platform::SelectedResource::take_local_response)
+    {
+        let Some(authenticated) = platform_auth else {
+            return Ok(reject_platform(
+                &state,
+                access_log,
+                crate::platform::Rejection::Unavailable,
+            ));
+        };
+        let trace_id = trace_ctx
+            .get_or_insert_with(crate::observability::tracing::TraceContext::new_root)
+            .trace_id
+            .clone();
+        let meter = match authenticated
+            .admit(
+                &req_parts.method,
+                &req_parts.uri,
+                platform_resource,
+                trace_id,
+                state.usage_spool.as_deref(),
+            )
+            .await
+        {
+            Ok((_, _, meter)) => meter,
+            Err(error) => return Ok(reject_platform(&state, access_log, error)),
+        };
+        let mut response = hyper::Response::new(body);
+        response.headers_mut().insert(
+            http::header::CONTENT_TYPE,
+            http::HeaderValue::from_static("application/json"),
+        );
+        let response = finish_native_response(
+            BufferedResponsePipeline::new(&pipeline, &req_parts.headers),
+            &state,
+            &route,
+            request_start,
+            access_log,
+            inference_request_identity.as_ref(),
+            response,
+        )
+        .await;
+        return Ok(crate::platform::meter::track(response, Some(meter)));
+    }
 
     // ── Backend selection ─────────────────────────────────────────────────────
     let (backend, service_timeouts, sticky_new_session, mut inference_attempt, distributed_attempt) =
@@ -1728,6 +1837,42 @@ async fn handle_http_request(
         access_log.set_backend(backend.url.clone());
     }
 
+    if let Some(session) = &mut mcp_session {
+        if let Err(error) = session.bind_backend(&backend.url) {
+            return Ok(reject_platform(&state, access_log, error));
+        }
+    }
+    let platform_meter = if let Some(authenticated) = platform_auth {
+        let trace_id = trace_ctx
+            .get_or_insert_with(crate::observability::tracing::TraceContext::new_root)
+            .trace_id
+            .clone();
+        match authenticated
+            .admit(
+                &req_parts.method,
+                &req_parts.uri,
+                platform_resource,
+                trace_id,
+                state.usage_spool.as_deref(),
+            )
+            .await
+        {
+            Ok((invocation, authorization, meter)) => {
+                if let Err(error) = crate::platform::attach_identity(
+                    &mut req_parts.headers,
+                    &invocation,
+                    authorization,
+                ) {
+                    return Ok(reject_platform(&state, access_log, error));
+                }
+                Some(meter)
+            }
+            Err(error) => return Ok(reject_platform(&state, access_log, error)),
+        }
+    } else {
+        None
+    };
+
     // Record per-backend request.
     if state.metrics_enabled && inference_dispatch.is_none() {
         state.metrics.record_backend_request_id(backend.metric_id());
@@ -1777,7 +1922,10 @@ async fn handle_http_request(
     }
 
     // Inject outbound trace context (W3C traceparent).
-    if let Some(trace_ctx) = trace_ctx.as_ref().filter(|_| state.tracing_enabled) {
+    if let Some(trace_ctx) = trace_ctx
+        .as_ref()
+        .filter(|_| state.tracing_enabled || platform_meter.is_some())
+    {
         let traceparent = trace_ctx.to_traceparent();
         if let Ok(hval) = hyper::header::HeaderValue::from_str(&traceparent) {
             req_parts
@@ -1836,7 +1984,13 @@ async fn handle_http_request(
             inference_dispatch: inference_dispatch.take(),
             service_request,
         };
-        return Ok(protocol::handle_sse_dispatch(ctx).await);
+        return Ok(crate::platform::meter::track(
+            crate::platform::session::response(
+                mcp_session,
+                protocol::handle_sse_dispatch(ctx).await,
+            ),
+            platform_meter,
+        ));
     }
 
     // ── Plain HTTP dispatch ───────────────────────────────────────────────────
@@ -1867,6 +2021,24 @@ async fn handle_http_request(
             inference_dispatch,
             service_request,
         };
-        Ok(protocol::handle_http_dispatch(ctx).await)
+        Ok(crate::platform::meter::track(
+            crate::platform::session::response(
+                mcp_session,
+                protocol::handle_http_dispatch(ctx).await,
+            ),
+            platform_meter,
+        ))
     }
+}
+
+fn reject_platform(
+    state: &GatewayState,
+    access_log: Option<RequestAccessLog>,
+    rejection: crate::platform::Rejection,
+) -> hyper::Response<ResponseBody> {
+    let status = rejection.status().as_u16();
+    if state.metrics_enabled {
+        state.metrics.record_request(status, 0);
+    }
+    finish_access_log(access_log, error_response(status, rejection.detail()))
 }

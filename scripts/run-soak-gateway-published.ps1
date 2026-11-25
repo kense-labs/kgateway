@@ -12,21 +12,21 @@ function Require-Env([string]$Name) {
   return $v
 }
 
-$dedicated = Require-Env "A3S_GATEWAY_DEDICATED_RUNNER"
-if ($dedicated -ne "1") { throw "refuse: A3S_GATEWAY_DEDICATED_RUNNER must be 1" }
-Require-Env "A3S_GATEWAY_HW_HOST" | Out-Null
-Require-Env "A3S_GATEWAY_HW_CPU_MODEL" | Out-Null
-Require-Env "A3S_GATEWAY_HW_MEMORY_GB" | Out-Null
+$dedicated = Require-Env "KGATEWAY_DEDICATED_RUNNER"
+if ($dedicated -ne "1") { throw "refuse: KGATEWAY_DEDICATED_RUNNER must be 1" }
+Require-Env "KGATEWAY_HW_HOST" | Out-Null
+Require-Env "KGATEWAY_HW_CPU_MODEL" | Out-Null
+Require-Env "KGATEWAY_HW_MEMORY_GB" | Out-Null
 
-$Bin = if ($args.Count -ge 1) { $args[0] } else { ".\target\release\a3s-gateway.exe" }
+$Bin = if ($args.Count -ge 1) { $args[0] } else { ".\target\release\kgateway.exe" }
 if (-not (Test-Path $Bin)) {
-  Write-Host "building release a3s-gateway..."
-  cargo build --locked --release --bin a3s-gateway
-  $Bin = ".\target\release\a3s-gateway.exe"
+  Write-Host "building release kgateway..."
+  cargo build --locked --release --bin kgateway
+  $Bin = ".\target\release\kgateway.exe"
 }
 
-$Dur = if ($env:A3S_GATEWAY_SOAK_DURATION) { $env:A3S_GATEWAY_SOAK_DURATION } else { "7200" }
-$C = if ($env:A3S_GATEWAY_SOAK_CONCURRENCY) { $env:A3S_GATEWAY_SOAK_CONCURRENCY } else { "16" }
+$Dur = if ($env:KGATEWAY_SOAK_DURATION) { $env:KGATEWAY_SOAK_DURATION } else { "7200" }
+$C = if ($env:KGATEWAY_SOAK_CONCURRENCY) { $env:KGATEWAY_SOAK_CONCURRENCY } else { "16" }
 
 function Invoke-Python {
   param([string[]]$PythonArgs)

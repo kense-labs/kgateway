@@ -90,6 +90,7 @@ pub struct Gateway {
     managed_service_drains: Arc<RwLock<BTreeMap<String, Weak<Backend>>>>,
     /// Node-local durable usage spool, initialized before listeners.
     usage_spool: Arc<RwLock<Option<Arc<UsageSpool>>>>,
+    platform_budget: Option<Arc<crate::platform::BudgetStore>>,
     /// Background Cloud usage ingest uploader, when configured.
     usage_uploader_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
     /// ACME certificate manager handle (if any entrypoint has acme = true)
@@ -117,6 +118,7 @@ struct GatewayReloadHandle {
     managed_snapshots: Arc<ManagedSnapshotStore>,
     managed_services: Option<Arc<ManagedServiceStore>>,
     usage_spool: Arc<RwLock<Option<Arc<UsageSpool>>>>,
+    platform_budget: Option<Arc<crate::platform::BudgetStore>>,
     acme_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
     shutdown_tx: tokio::sync::watch::Sender<bool>,
 }
@@ -163,6 +165,7 @@ async fn build_runtime(
     middleware_registry: &MiddlewareRegistry,
     previous_inference_authorizer: Option<&crate::inference::InferenceAuthorizer>,
     usage_spool: Option<Arc<UsageSpool>>,
+    platform_budget: Option<Arc<crate::platform::BudgetStore>>,
 ) -> Result<BuiltRuntime> {
     let router_table = RouterTable::from_config(&config.routers)?;
     tracing::info!(routes = router_table.len(), "Router table compiled");
@@ -176,6 +179,20 @@ async fn build_runtime(
     }
     let pipeline_cache = build_pipeline_cache(config, &config.middlewares, middleware_registry)?;
 
+    let platform = config
+        .platform_policy
+        .as_ref()
+        .map(|policy| {
+            let bootstrap =
+                config.managed.platform.as_ref().ok_or_else(|| {
+                    GatewayError::Config("Missing platform bootstrap".to_string())
+                })?;
+            let budgets = platform_budget
+                .ok_or_else(|| GatewayError::Config("Missing platform budget store".to_string()))?;
+            crate::platform::Admission::new(policy, bootstrap, &config.managed, budgets)
+                .map(Arc::new)
+        })
+        .transpose()?;
     let service_registry = ServiceRegistry::from_config(&config.services)?;
     tracing::info!(services = service_registry.len(), "Services registered");
     let passive_health = build_passive_health(config);
@@ -246,6 +263,7 @@ async fn build_runtime(
             tcp_router_table,
             route_plans,
             service_registry: service_registry.clone(),
+            platform,
             inference_authorizer: config
                 .inference
                 .as_ref()
@@ -455,6 +473,7 @@ impl GatewayReloadHandle {
             self.middleware_registry.as_ref(),
             previous_inference_authorizer.as_deref(),
             usage_spool,
+            self.platform_budget.clone(),
         )
         .await
         {
@@ -615,6 +634,21 @@ impl Gateway {
             config.managed.gateway_id,
             config.managed.state_file.clone(),
         ));
+        let platform_budget = config
+            .managed
+            .platform
+            .as_ref()
+            .map(|bootstrap| {
+                let gateway_id = config.managed.gateway_id.ok_or_else(|| {
+                    GatewayError::Config("Missing platform gateway identity".to_string())
+                })?;
+                crate::platform::BudgetStore::open(&bootstrap.budget_state_file, gateway_id)
+                    .map(Arc::new)
+                    .map_err(|error| {
+                        GatewayError::Config(format!("Open platform budget state: {error}"))
+                    })
+            })
+            .transpose()?;
 
         let (shutdown_tx, _shutdown_rx) = tokio::sync::watch::channel(false);
         Ok(Self {
@@ -636,6 +670,7 @@ impl Gateway {
             managed_services,
             managed_service_drains: Arc::new(RwLock::new(BTreeMap::new())),
             usage_spool: Arc::new(RwLock::new(None)),
+            platform_budget,
             usage_uploader_handle: Arc::new(RwLock::new(None)),
             acme_handle: Arc::new(RwLock::new(None)),
             shutdown_tx,
@@ -812,6 +847,7 @@ impl Gateway {
             managed_snapshots: self.managed_snapshots.clone(),
             managed_services: self.managed_services.clone(),
             usage_spool: self.usage_spool.clone(),
+            platform_budget: self.platform_budget.clone(),
             acme_handle: self.acme_handle.clone(),
             shutdown_tx: self.shutdown_tx.clone(),
         }
@@ -826,6 +862,7 @@ impl Gateway {
             reload_managed_snapshot: Some(self.managed_snapshot_reload_callback()),
             managed_snapshots: self.managed_snapshots.clone(),
             usage_spool: self.usage_spool.clone(),
+            platform_budget: self.platform_budget.clone(),
         };
         let handle = crate::node_api::start_node_api_listener(&config.management, state).await?;
         *self.node_api_handle.write().unwrap() = handle;
@@ -1066,6 +1103,7 @@ impl GatewayReloadHandle {
             reload_managed_snapshot: Some(self.managed_snapshot_reload_callback()),
             managed_snapshots: self.managed_snapshots.clone(),
             usage_spool: self.usage_spool.clone(),
+            platform_budget: self.platform_budget.clone(),
         }
     }
 

@@ -392,6 +392,7 @@ fn add_base_route(config: &mut GatewayConfig, upstream: SocketAddr, path: &str) 
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: Vec::new(),
@@ -419,7 +420,7 @@ fn cloud_managed_acl(
     base_upstream: Option<SocketAddr>,
 ) -> String {
     // Node API requires a configured bearer env when management.enabled.
-    std::env::set_var("A3S_GATEWAY_TEST_ADMIN_TOKEN", "managed-service-test-token");
+    std::env::set_var("KGATEWAY_TEST_ADMIN_TOKEN", "managed-service-test-token");
     let traffic = base_upstream.map_or_else(String::new, |upstream| {
         format!(
             r#"
@@ -448,7 +449,7 @@ management {{
   enabled        = true
   address        = "{management_address}"
   path_prefix    = "/api/gateway"
-  auth_token_env = "A3S_GATEWAY_TEST_ADMIN_TOKEN"
+  auth_token_env = "KGATEWAY_TEST_ADMIN_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 {traffic}

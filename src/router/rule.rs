@@ -20,6 +20,8 @@ pub enum Matcher {
     Path(String),
     /// Match by path prefix: `PathPrefix(`/prefix`)`
     PathPrefix(String),
+    /// Match a path containing one variable segment: `PathTemplate(`/files/{id}/content`)`
+    PathTemplate { prefix: String, suffix: String },
     /// Match by HTTP method: `Method(`GET`)`
     Method(String),
     /// Match by header key-value: `Headers(`key`, `value`)`
@@ -35,6 +37,15 @@ impl Matcher {
                 .unwrap_or(false),
             Matcher::Path(expected) => path == expected,
             Matcher::PathPrefix(prefix) => path.starts_with(prefix.as_str()),
+            Matcher::PathTemplate { prefix, suffix } => path
+                .strip_prefix(prefix)
+                .and_then(|rest| rest.strip_suffix(suffix))
+                .is_some_and(|segment| {
+                    !segment.is_empty()
+                        && segment
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+                }),
             Matcher::Method(expected) => method.eq_ignore_ascii_case(expected),
             Matcher::Headers(key, value) => headers
                 .get(key.as_str())
@@ -92,7 +103,7 @@ impl Rule {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use a3s_gateway::router::Rule;
+    /// use kgateway::router::Rule;
     ///
     /// let rule = Rule::parse("Host(`example.com`) && PathPrefix(`/api`)").unwrap();
     /// ```
@@ -209,6 +220,26 @@ impl Rule {
                 }
                 validate_path_argument(&args[0])?;
                 Ok(Matcher::PathPrefix(args[0].clone()))
+            }
+            "PathTemplate" => {
+                let [template] = args.as_slice() else {
+                    return Err("PathTemplate() expects one argument".to_string());
+                };
+                let (prefix, suffix) = template
+                    .split_once("{id}")
+                    .ok_or_else(|| "PathTemplate() requires one {id} segment".to_string())?;
+                if !prefix.ends_with('/')
+                    || (!suffix.is_empty() && !suffix.starts_with('/'))
+                    || prefix.contains(['{', '}'])
+                    || suffix.contains(['{', '}'])
+                {
+                    return Err("PathTemplate() requires one {id} segment".to_string());
+                }
+                validate_path_argument(&format!("{prefix}id{suffix}"))?;
+                Ok(Matcher::PathTemplate {
+                    prefix: prefix.to_owned(),
+                    suffix: suffix.to_owned(),
+                })
             }
             "Method" => {
                 if args.len() != 1 {

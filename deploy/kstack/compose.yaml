@@ -1,0 +1,66 @@
+services:
+  kgateway:
+    image: ${KGATEWAY_IMAGE:?set the paired kgateway image}
+    command: ["--config", "/etc/kgateway/gateway.acl"]
+    healthcheck:
+      disable: true
+    environment:
+      KGATEWAY_NODE_TOKEN: ${KGATEWAY_NODE_TOKEN:?set a replica Node API token}
+      KGATEWAY_USAGE_TOKEN: ${KGATEWAY_USAGE_TOKEN:?set a replica usage token}
+    volumes:
+      - ./runtime/gateway/gateway.acl:/etc/kgateway/gateway.acl:ro
+      - ./runtime/gateway/tls:/run/kense/tls:ro
+      - gateway-state:/var/lib/kgateway
+    ports:
+      - "${KGATEWAY_PORT:-8443}:8443"
+    networks: [platform, edge]
+    restart: unless-stopped
+
+  kstack:
+    image: ${KSTACK_IMAGE:?set the paired kstack image}
+    command: ["serve", "--config", "/etc/kstack/server.yaml"]
+    environment:
+      GPUWORKS_ADMIN_PASSWORD: ${KSTACK_ADMIN_PASSWORD:?set the initial console password}
+      KSTACK_MAAS_USAGE_TOKEN: ${KSTACK_MAAS_USAGE_TOKEN:?set the MaaS metering token}
+    volumes:
+      - ./runtime/kstack/server.yaml:/etc/kstack/server.yaml:ro
+      - ./runtime/kstack/tls:/run/kense/tls:ro
+      - kstack-state:/var/lib/kstack
+    ports:
+      - "127.0.0.1:${KSTACK_CONSOLE_PORT:-8800}:8800"
+    networks: [platform, management]
+    restart: unless-stopped
+
+  control-plane:
+    image: ${KGATEWAY_CONTROL_IMAGE:?set the paired control-plane image}
+    command: ["--config", "/etc/kgateway-control/control.json"]
+    environment:
+      CONTROL_ADMIN_TOKEN: ${CONTROL_ADMIN_TOKEN:?set the control-plane operator token}
+      CONTROL_AUDITOR_TOKEN: ${CONTROL_AUDITOR_TOKEN:?set the control-plane auditor token}
+      KGATEWAY_NODE_TOKEN: ${KGATEWAY_NODE_TOKEN:?set a replica Node API token}
+      KGATEWAY_USAGE_TOKEN: ${KGATEWAY_USAGE_TOKEN:?set a replica usage token}
+      KSTACK_MAAS_USAGE_TOKEN: ${KSTACK_MAAS_USAGE_TOKEN:?set the MaaS metering token}
+    volumes:
+      - ./runtime/control:/etc/kgateway-control:ro
+      - control-state:/var/lib/kgateway-control
+    ports:
+      - "127.0.0.1:${CONTROL_PORT:-9443}:9443"
+    networks:
+      platform:
+        ipv4_address: ${KGATEWAY_CONTROL_INTERNAL_IP:-172.29.249.10}
+      management: {}
+    restart: unless-stopped
+
+networks:
+  platform:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${KGATEWAY_PLATFORM_SUBNET:-172.29.249.0/24}
+  edge: {}
+  management: {}
+
+volumes:
+  gateway-state: {}
+  kstack-state: {}
+  control-state: {}

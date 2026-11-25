@@ -52,6 +52,7 @@ pub(super) fn inference_config(
             gateway_id: Some(gateway_id),
             state_file: None,
             usage_spool: None,
+            platform: None,
         },
         ..GatewayConfig::default()
     };
@@ -82,6 +83,7 @@ pub(super) fn inference_config(
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],
@@ -107,6 +109,7 @@ pub(super) fn inference_config(
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],
@@ -279,6 +282,7 @@ fn gateway_state_with_runtime(
         ),
         route_plans,
         service_registry,
+        platform: None,
         inference_authorizer: config
             .inference
             .as_ref()

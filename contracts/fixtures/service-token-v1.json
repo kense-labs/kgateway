@@ -1,0 +1,26 @@
+{
+  "v": 1,
+  "iss": "urn:plat:identity:integration",
+  "aud": "urn:plat:maas:kstack",
+  "sub": "key-21",
+  "iat": 1795564800,
+  "exp": 1795565100,
+  "tenant": "tenant-1",
+  "project": "project-1",
+  "env": "prod",
+  "org": "org-1",
+  "plane": "tenant",
+  "urn": "urn:plat:maas:model:test-model",
+  "operation": "maas.chat.create",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "request_id": "1d4e2db7-eca6-40ad-9823-46102325729a",
+  "trace_id": "dd879de98b784bbd9ac258721d3d5595",
+  "reservation_id": "42cc70ab-441c-49bf-bb8b-403dfdebfcad",
+  "deployments": [
+    {
+      "id": 17,
+      "version": "sha256:b1a151a72b85b58226ec034cc9dc0e6287880ab7c62856a7834fc6a615abed5a"
+    }
+  ]
+}

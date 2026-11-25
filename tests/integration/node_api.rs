@@ -1,3 +1,6 @@
+#[path = "../support/node_auth.rs"]
+mod node_auth;
+
 #[tokio::test]
 async fn test_api_gateway_path_is_regular_traffic() {
     let backend = spawn_backend("regular-traffic").await;
@@ -153,6 +156,7 @@ async fn test_node_api_uses_dedicated_listener() {
 
 #[tokio::test]
 async fn test_node_api_exposes_only_the_machine_contract() {
+    node_auth::configure_in_process();
     let traffic_port = free_port().await;
     let node_api_port = free_port().await;
     let backend = spawn_backend("traffic-ok").await;
@@ -161,7 +165,7 @@ async fn test_node_api_exposes_only_the_machine_contract() {
         enabled: true,
         address: format!("127.0.0.1:{node_api_port}"),
         path_prefix: "/api/gateway".to_string(),
-        auth_token_env: None,
+        auth_token_env: Some(node_auth::TOKEN_ENV.to_owned()),
         allowed_ips: vec!["127.0.0.1".to_string()],
         tls: None,
     };
@@ -177,6 +181,7 @@ async fn test_node_api_exposes_only_the_machine_contract() {
     for path in ["health", "metrics", "version"] {
         let status = client
             .get(format!("{base_url}/{path}"))
+            .bearer_auth(node_auth::TOKEN)
             .send()
             .await
             .unwrap()
@@ -196,6 +201,7 @@ async fn test_node_api_exposes_only_the_machine_contract() {
     ] {
         let status = client
             .get(format!("{base_url}/{path}"))
+            .bearer_auth(node_auth::TOKEN)
             .send()
             .await
             .unwrap()
@@ -205,6 +211,7 @@ async fn test_node_api_exposes_only_the_machine_contract() {
     for path in ["config/validate", "config/reload"] {
         let status = client
             .post(format!("{base_url}/{path}"))
+            .bearer_auth(node_auth::TOKEN)
             .body("invalid operator payload")
             .send()
             .await
@@ -235,6 +242,7 @@ async fn test_node_api_exposes_only_the_machine_contract() {
 
 #[tokio::test]
 async fn test_node_api_rejects_disallowed_ip() {
+    node_auth::configure_in_process();
     let traffic_port = free_port().await;
     let management_port = free_port().await;
     let backend = spawn_backend("traffic-ok").await;
@@ -243,7 +251,7 @@ async fn test_node_api_rejects_disallowed_ip() {
         enabled: true,
         address: format!("127.0.0.1:{}", management_port),
         path_prefix: "/api/gateway".to_string(),
-        auth_token_env: None,
+        auth_token_env: Some(node_auth::TOKEN_ENV.to_owned()),
         allowed_ips: vec!["10.0.0.1".to_string()],
         tls: None,
     };
@@ -253,7 +261,12 @@ async fn test_node_api_rejects_disallowed_ip() {
     wait_ready(management_port).await;
 
     let management_url = format!("http://127.0.0.1:{}/api/gateway/health", management_port);
-    let resp = reqwest::get(management_url).await.unwrap();
+    let resp = reqwest::Client::new()
+        .get(management_url)
+        .bearer_auth(node_auth::TOKEN)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 403);
 
     gw.shutdown().await;
@@ -261,6 +274,7 @@ async fn test_node_api_rejects_disallowed_ip() {
 
 #[tokio::test]
 async fn test_node_api_requires_valid_client_certificate() {
+    node_auth::configure_in_process();
     let traffic_port = free_port().await;
     let management_port = free_port().await;
     let backend = spawn_backend("traffic-ok").await;
@@ -270,7 +284,7 @@ async fn test_node_api_requires_valid_client_certificate() {
         enabled: true,
         address: format!("127.0.0.1:{}", management_port),
         path_prefix: "/api/gateway".to_string(),
-        auth_token_env: None,
+        auth_token_env: Some(node_auth::TOKEN_ENV.to_owned()),
         allowed_ips: vec!["127.0.0.1".to_string()],
         tls: Some(ManagementTlsConfig {
             cert_file: fixture.server_cert_file.clone(),
@@ -291,7 +305,11 @@ async fn test_node_api_requires_valid_client_certificate() {
         .build()
         .unwrap();
     let management_url = format!("https://127.0.0.1:{}/api/gateway/health", management_port);
-    let no_cert_result = no_cert_client.get(&management_url).send().await;
+    let no_cert_result = no_cert_client
+        .get(&management_url)
+        .bearer_auth(node_auth::TOKEN)
+        .send()
+        .await;
     assert!(no_cert_result.is_err());
 
     let ca_cert = reqwest::Certificate::from_pem(fixture.client_ca_pem.as_bytes()).unwrap();
@@ -301,7 +319,12 @@ async fn test_node_api_requires_valid_client_certificate() {
         .identity(identity)
         .build()
         .unwrap();
-    let resp = mtls_client.get(management_url).send().await.unwrap();
+    let resp = mtls_client
+        .get(management_url)
+        .bearer_auth(node_auth::TOKEN)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 200);
     assert!(resp.text().await.unwrap().contains("Running"));
 

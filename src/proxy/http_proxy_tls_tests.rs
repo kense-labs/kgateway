@@ -19,8 +19,6 @@ fn tls_fixture(name: &str) -> PathBuf {
 }
 
 async fn spawn_tls_backend() -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap();
     let acceptor = build_tls_acceptor(&TlsConfig {
         cert_file: tls_fixture("revision-1.crt").display().to_string(),
         key_file: tls_fixture("revision-1.key").display().to_string(),
@@ -32,7 +30,12 @@ async fn spawn_tls_backend() -> SocketAddr {
         acme_storage_path: None,
     })
     .unwrap();
+    spawn_backend_with_acceptor(acceptor).await
+}
 
+async fn spawn_backend_with_acceptor(acceptor: tokio_rustls::TlsAcceptor) -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
         let Ok(stream) = acceptor.accept(stream).await else {
@@ -59,6 +62,59 @@ async fn spawn_tls_backend() -> SocketAddr {
     });
 
     address
+}
+
+#[tokio::test]
+async fn private_upstream_requires_the_configured_client_identity() {
+    let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let path = |name| directory.join(name).display().to_string();
+    let ca_file = path("usage_mtls_ca.pem");
+    let acceptor =
+        crate::proxy::tls::build_node_api_tls_acceptor(&crate::config::ManagementTlsConfig {
+            cert_file: path("usage_mtls_server.pem"),
+            key_file: path("usage_mtls_server.key"),
+            client_ca_file: Some(ca_file.clone()),
+            require_client_cert: true,
+            min_version: "1.2".to_string(),
+        })
+        .unwrap();
+    let material = tempfile::tempdir().unwrap();
+    let identity_file = material.path().join("kgateway-client.pem");
+    let mut pem = std::fs::read(path("usage_mtls_client.pem")).unwrap();
+    pem.extend(std::fs::read(path("usage_mtls_client.key")).unwrap());
+    std::fs::write(&identity_file, pem).unwrap();
+    let options = [None, identity_file.to_str()];
+    for identity in options {
+        let address = spawn_backend_with_acceptor(acceptor.clone()).await;
+        let backend = Arc::new(Backend::new(format!("https://{address}"), 1));
+        let proxy = HttpProxy::try_with_timeouts_and_ca_file(
+            Duration::from_secs(5),
+            Duration::from_secs(5),
+            &ca_file,
+            identity,
+        )
+        .unwrap();
+        let response = proxy
+            .forward_streaming_response_with_options(
+                &backend,
+                &http::Method::GET,
+                &"/secure".parse().unwrap(),
+                &http::HeaderMap::new(),
+                Bytes::new(),
+                ForwardOptions::default(),
+            )
+            .await;
+        if identity.is_some() {
+            let response = response.unwrap();
+            assert_eq!(response.status, http::StatusCode::OK);
+            assert_eq!(response.body.collect().await.unwrap().to_bytes(), "secure");
+        } else {
+            assert!(
+                response.is_err(),
+                "mTLS upstream accepted an anonymous client"
+            );
+        }
+    }
 }
 
 fn fixture_tls_client_config() -> ClientConfig {
@@ -109,6 +165,7 @@ async fn try_with_timeouts_and_ca_file_trusts_private_upstream() {
         Duration::from_secs(5),
         Duration::from_secs(5),
         tls_fixture("revision-1-ca.crt").to_str().unwrap(),
+        None,
     )
     .expect("private CA proxy");
 

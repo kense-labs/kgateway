@@ -1,0 +1,63 @@
+{
+  "bind": "0.0.0.0",
+  "port": 9443,
+  "state_db": "/var/lib/kgateway-control/state.sqlite",
+  "admin_token_env": "CONTROL_ADMIN_TOKEN",
+  "audit_token_env": "CONTROL_AUDITOR_TOKEN",
+  "maas_usage_token_env": "KSTACK_MAAS_USAGE_TOKEN",
+  "tls": { "cert": "tls/control.crt", "key": "tls/control.key" },
+  "replicas": [
+    {
+      "id": "bc64802d-aeb2-4b34-80db-5f1d51921835",
+      "node_api": "https://kgateway:9444/api/gateway",
+      "node_ca": "tls/platform-ca.pem",
+      "node_client_cert": "tls/node-client.crt",
+      "node_client_key": "tls/node-client.key",
+      "node_token_env": "KGATEWAY_NODE_TOKEN",
+      "usage_token_env": "KGATEWAY_USAGE_TOKEN",
+      "snapshot_acl": "gateway-snapshot.acl",
+      "signer": {
+        "issuer": "urn:plat:identity:kense",
+        "key_id": "gateway-1",
+        "authorized_until": "2027-01-01T00:00:00Z"
+      }
+    }
+  ],
+  "routes": {
+    "maas-models": {
+      "method": "GET",
+      "path": "/v1/models",
+      "audience": "urn:plat:maas:kstack",
+      "operation": "maas.models.list",
+      "resource": { "kind": "model-list", "urn": "urn:plat:maas:models", "targets": {} },
+      "routing": { "service": "maas", "entrypoints": ["public"] },
+      "contract": {
+        "summary": "List models authorized for this Kense Key",
+        "protocol": "openai",
+        "metering_units": ["requests", "egress_bytes"],
+        "quota_dimensions": ["tenant", "project", "env"],
+        "slo": { "availability": 0.999, "p99_ms": 1000 },
+        "responses": {
+          "200": {
+            "description": "Authorized OpenAI model list",
+            "content": { "application/json": { "schema": {
+              "type": "object", "required": ["object", "data"],
+              "properties": {
+                "object": { "const": "list" },
+                "data": { "type": "array", "items": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } } }
+              }
+            } } }
+          }
+        }
+      }
+    }
+  },
+  "budgets": [
+    {
+      "tenant": "tenant-example",
+      "operation": "maas.models.list",
+      "requests": 1000,
+      "replicas": { "bc64802d-aeb2-4b34-80db-5f1d51921835": 1000 }
+    }
+  ]
+}

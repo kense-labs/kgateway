@@ -137,7 +137,8 @@ class EnterpriseGaStatusTests(unittest.TestCase):
             )
 
     def test_repo_status_is_consistent_pre_ga(self) -> None:
-        errors = self.mod.check_status()
+        statuses, errors = self.mod.check_release_manifest()
+        self.assertTrue(statuses)
         self.assertEqual(errors, [], errors)
 
     def test_soak_wrapper_envelope_pins_refuse_soft_open(self) -> None:
@@ -161,11 +162,11 @@ class EnterpriseGaStatusTests(unittest.TestCase):
                 "--envelope-status lab-extended\n", encoding="utf-8"
             )
             (scripts / "run-soak-gateway-published.sh").write_text(
-                "A3S_GATEWAY_DEDICATED_RUNNER\n7200\n--envelope-status published\n",
+                "KGATEWAY_DEDICATED_RUNNER\n7200\n--envelope-status published\n",
                 encoding="utf-8",
             )
             (scripts / "run-soak-gateway-published.ps1").write_text(
-                "A3S_GATEWAY_DEDICATED_RUNNER\n7200\n--envelope-status published\n",
+                "KGATEWAY_DEDICATED_RUNNER\n7200\n--envelope-status published\n",
                 encoding="utf-8",
             )
             old_root = mod.ROOT
@@ -203,7 +204,7 @@ class EnterpriseGaStatusTests(unittest.TestCase):
             ):
                 body = f"--envelope-status {status}\n{profiles}\n"
                 if "published" in name:
-                    body += "A3S_GATEWAY_DEDICATED_RUNNER\n7200\n"
+                    body += "KGATEWAY_DEDICATED_RUNNER\n7200\n"
                 (scripts / name).write_text(body, encoding="utf-8")
             old_root = mod.ROOT
             mod.ROOT = root
@@ -683,7 +684,7 @@ class EnterpriseGaStatusTests(unittest.TestCase):
                     "memory_gb": 64,
                 },
                 "gateway": {
-                    "version": "a3s-gateway 1.1.1",
+                    "version": "kgateway 1.1.1",
                     "git_sha": "a" * 40,
                 },
             },

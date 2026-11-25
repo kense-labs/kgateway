@@ -51,7 +51,7 @@ report_failure() {
   printf '::error file=scripts/run-proxy-comparison.sh,line=%s,title=Protocol benchmark failed::stage=%s; exit=%s\n' \
     "$line" "$benchmark_stage" "$status"
   for log in \
-    "$output_root/a3s-gateway.log" \
+    "$output_root/kgateway.log" \
     "$output_root/nginx.log" \
     "$output_root/protocol-upstream.log" \
     "$output_root/upstream.log"; do
@@ -92,7 +92,7 @@ proxy_port() {
   local proxy="$1"
   local a3s_port="$2"
   local nginx_port="$3"
-  if [[ "$proxy" == "a3s-gateway" ]]; then
+  if [[ "$proxy" == "kgateway" ]]; then
     printf '%s' "$a3s_port"
   else
     printf '%s' "$nginx_port"
@@ -253,8 +253,8 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
   -out "$certificate" >/dev/null 2>&1
 printf '\x00\x00\x00\x00\x00' >"$grpc_request"
 
-benchmark_stage="validate A3S Gateway configuration"
-"$repository_root/target/release/a3s-gateway" validate \
+benchmark_stage="validate kgateway configuration"
+"$repository_root/target/release/kgateway" validate \
   --config "$fixture_root/gateway.acl"
 benchmark_stage="validate NGINX upstream configuration"
 nginx -t -c "$fixture_root/nginx-upstream.conf"
@@ -275,15 +275,15 @@ wait_for_tcp 18090
 wait_for_tcp 18091
 wait_for_tcp 18093
 
-benchmark_stage="start A3S Gateway and NGINX"
+benchmark_stage="start kgateway and NGINX"
 nginx -c "$fixture_root/nginx-gateway.conf" -g 'daemon off;' \
   >"$output_root/nginx.log" 2>&1 &
 nginx_pid=$!
-"$repository_root/target/release/a3s-gateway" --config "$fixture_root/gateway.acl" \
-  >"$output_root/a3s-gateway.log" 2>&1 &
+"$repository_root/target/release/kgateway" --config "$fixture_root/gateway.acl" \
+  >"$output_root/kgateway.log" 2>&1 &
 a3s_pid=$!
 
-benchmark_stage="wait for A3S Gateway and NGINX"
+benchmark_stage="wait for kgateway and NGINX"
 wait_for_endpoint "http://127.0.0.1:18081/benchmark"
 wait_for_endpoint "http://127.0.0.1:18082/benchmark"
 wait_for_endpoint "https://127.0.0.1:18443/benchmark" --insecure
@@ -292,9 +292,9 @@ wait_for_tcp 19081
 wait_for_tcp 19083
 
 for profile in "${profiles[@]}"; do
-  benchmark_stage="warm up ${profile} through A3S Gateway"
-  run_profile "$profile" a3s-gateway \
-    "$output_root/warmup-${profile}-a3s-gateway.json" "$warmup_seconds"
+  benchmark_stage="warm up ${profile} through kgateway"
+  run_profile "$profile" kgateway \
+    "$output_root/warmup-${profile}-kgateway.json" "$warmup_seconds"
   benchmark_stage="warm up ${profile} through NGINX"
   run_profile "$profile" nginx \
     "$output_root/warmup-${profile}-nginx.json" "$warmup_seconds"
@@ -302,9 +302,9 @@ done
 
 for trial in $(seq 1 "$trials"); do
   if (( trial % 2 == 1 )); then
-    order=(a3s-gateway nginx)
+    order=(kgateway nginx)
   else
-    order=(nginx a3s-gateway)
+    order=(nginx kgateway)
   fi
   for profile in "${profiles[@]}"; do
     for proxy in "${order[@]}"; do
@@ -329,7 +329,7 @@ python3 "$repository_root/scripts/export-proxy-comparison.py" \
   --logical-cpus "${LOGICAL_CPUS:-$(nproc)}" \
   --memory-mib "${MEMORY_MIB:-0}" \
   --kernel "${KERNEL_VERSION:-$(uname -srmo)}" \
-  --a3s-version "$("$repository_root/target/release/a3s-gateway" --version)" \
+  --a3s-version "$("$repository_root/target/release/kgateway" --version)" \
   --nginx-version "$(nginx -v 2>&1)" \
   --oha-version "$(oha --version)" \
   --trials "$trials" \

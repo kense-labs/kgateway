@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::GatewayConfig;
 use crate::error::{GatewayError, Result};
 
-/// Process-level operating mode for A3S Gateway.
+/// Process-level operating mode for kgateway.
 ///
 /// The mode selects the desired-state authority and cannot be changed by hot
 /// reload. Restart the process to cross this boundary.
@@ -60,6 +60,7 @@ impl GatewayConfig {
             || !self.services.is_empty()
             || !self.middlewares.is_empty()
             || self.inference.is_some()
+            || self.platform_policy.is_some()
         {
             return Err(GatewayError::Config(
                 "A cloud-managed bootstrap ACL with managed.gateway_id cannot define traffic routers, services, middlewares, or inference policy; deliver them as a managed snapshot"
@@ -107,6 +108,11 @@ impl GatewayConfig {
         if self.management != current.management {
             return Err(GatewayError::Config(
                 "Managed snapshots cannot change the bootstrap node API listener".to_string(),
+            ));
+        }
+        if current.managed.platform.is_some() && self.platform_policy.is_none() {
+            return Err(GatewayError::Config(
+                "Managed platform snapshots must include the platform policy".to_string(),
             ));
         }
         for (name, entrypoint) in &self.entrypoints {
@@ -252,7 +258,7 @@ impl GatewayConfig {
                 spool.cloud_ingest_uses_bearer(),
                 spool.cloud_ingest_uses_mtls(),
             ) {
-                (None, false, false) => {}
+                (None, false, false) if spool.cloud_ingest_server_ca_file.is_none() => {}
                 (Some(endpoint), bearer, mtls) => {
                     let endpoint = endpoint.trim();
                     if endpoint.is_empty() {
@@ -298,27 +304,29 @@ impl GatewayConfig {
                                         .to_string(),
                                 )
                             })?;
-                        let ca = spool.cloud_ingest_server_ca_file.as_ref().ok_or_else(|| {
+                        if spool.cloud_ingest_server_ca_file.is_none() {
+                            return Err(
                             GatewayError::Config(
                                 "managed.usage_spool.cloud_ingest_server_ca_file is required for mTLS Cloud ingest"
                                     .to_string(),
-                            )
-                        })?;
+                            ));
+                        }
                         if !identity.is_absolute() || identity.file_name().is_none() {
                             return Err(GatewayError::Config(
                                 "managed.usage_spool.cloud_ingest_client_identity_file must be an absolute file path"
                                     .to_string(),
                             ));
                         }
+                    }
+                    if let Some(ca) = &spool.cloud_ingest_server_ca_file {
                         if !ca.is_absolute() || ca.file_name().is_none() {
                             return Err(GatewayError::Config(
-                                "managed.usage_spool.cloud_ingest_server_ca_file must be an absolute file path"
-                                    .to_string(),
+                                "managed.usage_spool.cloud_ingest_server_ca_file must be an absolute file path".to_string(),
                             ));
                         }
                     }
                 }
-                (None, true, _) | (None, _, true) => {
+                (None, _, _) => {
                     return Err(GatewayError::Config(
                         "managed.usage_spool Cloud ingest auth fields require cloud_ingest_endpoint"
                             .to_string(),
@@ -450,7 +458,7 @@ mod tests {
 
     fn absolute_managed_path(relative: &str) -> std::path::PathBuf {
         std::env::temp_dir()
-            .join("a3s-gateway-config-tests")
+            .join("kgateway-config-tests")
             .join(relative)
     }
 
@@ -532,6 +540,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -833,7 +842,7 @@ mod tests {
         let without_identity = GatewayConfig::from_acl(
             r#"
             mode { kind = "cloud-managed" }
-            managed { state_file = "/var/lib/a3s-gateway/snapshot.json" }
+            managed { state_file = "/var/lib/kgateway/snapshot.json" }
             "#,
         )
         .unwrap();
@@ -1140,6 +1149,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: Vec::new(),

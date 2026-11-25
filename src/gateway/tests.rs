@@ -76,6 +76,7 @@ fn custom_middleware_config() -> GatewayConfig {
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],
@@ -482,6 +483,7 @@ async fn test_reload_handle_updates_live_components() {
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],
@@ -953,7 +955,7 @@ async fn validate_activation_fails_closed_when_usage_spool_parent_unusable() {
     assert!(
         error.to_string().contains("usage_spool")
             && (error.to_string().contains("create directory")
-                || error.to_string().contains("Could not")),
+                || error.to_string().contains("inspect directory")),
         "validate_activation must fail closed on unusable spool parent: {error}"
     );
     let Err(gateway_error) = Gateway::new(config) else {
@@ -981,7 +983,7 @@ async fn validate_activation_fails_closed_when_usage_spool_directory_is_not_writ
         gateway.shutdown().await;
     }
     let mut permissions = std::fs::metadata(&spool_directory).unwrap().permissions();
-    permissions.set_mode(0o555);
+    permissions.set_mode(0o500);
     std::fs::set_permissions(&spool_directory, permissions).unwrap();
 
     let config = managed_usage_config(gateway_id, spool_directory.clone());
@@ -999,7 +1001,7 @@ async fn validate_activation_fails_closed_when_usage_spool_directory_is_not_writ
     );
 
     let mut permissions = std::fs::metadata(&spool_directory).unwrap().permissions();
-    permissions.set_mode(0o755);
+    permissions.set_mode(0o700);
     std::fs::set_permissions(&spool_directory, permissions).unwrap();
 }
 

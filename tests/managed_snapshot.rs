@@ -1,6 +1,9 @@
-use a3s_gateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
-use a3s_gateway::{config::GatewayConfig, Gateway};
+#[path = "support/node_auth.rs"]
+mod node_auth;
+
 use chrono::{Duration, Utc};
+use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+use kgateway::{config::GatewayConfig, Gateway};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -113,7 +116,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -146,7 +149,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -193,6 +196,7 @@ async fn start_gateway(
         "PathPrefix(`/`)",
     );
     let bootstrap_acl = managed_bootstrap_acl(gateway_id, traffic_port, management_port, None);
+    node_auth::configure_in_process();
     let gateway = Arc::new(Gateway::new(GatewayConfig::from_acl(&bootstrap_acl).unwrap()).unwrap());
     gateway.start().await.unwrap();
     wait_ready(traffic_port).await;
@@ -209,6 +213,7 @@ async fn apply(
         .post(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/apply"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .json(snapshot)
         .send()
         .await
@@ -227,6 +232,7 @@ async fn exact_status(
         .get(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/status"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .query(&[
             ("gateway_id", snapshot.gateway_id.to_string()),
             ("revision", snapshot.revision.to_string()),
@@ -272,6 +278,7 @@ async fn managed_snapshot_apply_replay_and_exact_readiness_are_process_native() 
         .get(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/status"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .send()
         .await
         .unwrap()
@@ -285,6 +292,7 @@ async fn managed_snapshot_apply_replay_and_exact_readiness_are_process_native() 
         .post(format!(
             "http://127.0.0.1:{management_port}/api/gateway/config/reload"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .header(reqwest::header::CONTENT_TYPE, "text/plain")
         .body(acl)
         .send()
@@ -510,6 +518,8 @@ async fn durable_snapshot_recovers_across_gateway_restart_and_preserves_cas() {
     );
     let client = reqwest::Client::new();
 
+    node_auth::configure_in_process();
+
     let first = Arc::new(Gateway::new(GatewayConfig::from_acl(&bootstrap_acl).unwrap()).unwrap());
     first.start().await.unwrap();
     wait_ready(traffic_port).await;
@@ -522,6 +532,8 @@ async fn durable_snapshot_recovers_across_gateway_restart_and_preserves_cas() {
     assert_eq!(journal["phase"], "applied");
     first.shutdown().await;
     drop(first);
+
+    node_auth::configure_in_process();
 
     let restarted =
         Arc::new(Gateway::new(GatewayConfig::from_acl(&bootstrap_acl).unwrap()).unwrap());
@@ -585,6 +597,7 @@ async fn durable_prepare_failure_keeps_the_proven_runtime_ready() {
     let backend_v2 = spawn_backend("must-not-activate").await;
     let bootstrap_acl =
         durable_bootstrap_acl(gateway_id, traffic_port, management_port, &state_file);
+    node_auth::configure_in_process();
     let gateway = Arc::new(Gateway::new(GatewayConfig::from_acl(&bootstrap_acl).unwrap()).unwrap());
     gateway.start().await.unwrap();
     wait_ready(traffic_port).await;

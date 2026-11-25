@@ -1723,7 +1723,7 @@ fn default_docker_block_fails_validate_on_windows() {
 fn validate_rejects_docker_unix_socket_host_when_path_missing() {
     let mut config = GatewayConfig::default();
     config.providers.docker = Some(DockerProviderConfig {
-        host: "/tmp/a3s-gateway-missing-docker.sock".into(),
+        host: "/tmp/kgateway-missing-docker.sock".into(),
         ..DockerProviderConfig::default()
     });
     let error = config.validate().unwrap_err();
@@ -2063,6 +2063,7 @@ fn validate_activation_probes_service_tls_ca_websocket_clients() {
     std::fs::write(&junk_path, b"not a certificate").unwrap();
     let error = crate::proxy::websocket::private_ca_client_config(
         &junk_path.display().to_string().replace('\\', "/"),
+        None,
     )
     .expect_err("unusable PEM must not build a WebSocket private trust store");
     assert!(
@@ -2220,8 +2221,8 @@ fn health_checker_probe_rejects_unusable_pem() {
     .unwrap_err()
     .to_string();
     assert!(
-        error.contains("Failed to parse health-check tls_ca_file")
-            && (error.contains("no certificates found") || error.contains("invalid certificate")),
+        error.contains("Invalid health-check TLS configuration")
+            && error.to_ascii_lowercase().contains("certificates"),
         "unexpected error: {error}"
     );
 }

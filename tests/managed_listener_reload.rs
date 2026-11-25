@@ -1,6 +1,9 @@
-use a3s_gateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
-use a3s_gateway::{config::GatewayConfig, Gateway};
+#[path = "support/node_auth.rs"]
+mod node_auth;
+
 use chrono::{Duration, Utc};
+use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+use kgateway::{config::GatewayConfig, Gateway};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -22,6 +25,7 @@ async fn start_bootstrap_gateway(gateway_id: Uuid, protocol: &str) -> (Arc<Gatew
     let mut last_bind_error = None;
     for _ in 0..10 {
         let (traffic_port, management_port) = free_tcp_ports().await;
+        node_auth::configure_in_process();
         let gateway = Arc::new(
             Gateway::new(
                 GatewayConfig::from_acl(&bootstrap_acl(
@@ -159,7 +163,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -213,7 +217,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#,
@@ -262,7 +266,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -311,7 +315,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -344,6 +348,7 @@ async fn apply(
         .post(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/apply"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .json(snapshot)
         .send()
         .await
@@ -362,6 +367,7 @@ async fn exact_status(
         .get(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/status"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .query(&[
             ("gateway_id", snapshot.gateway_id.to_string()),
             ("revision", snapshot.revision.to_string()),
@@ -657,6 +663,8 @@ async fn managed_snapshot_reconciles_udp_policy_and_target_without_releasing_the
     let management_port = free_tcp_port().await;
     let backend_v1 = spawn_udp_backend("udp-revision-1").await;
     let backend_v2 = spawn_udp_backend("udp-revision-2").await;
+
+    node_auth::configure_in_process();
 
     let gateway = Arc::new(
         Gateway::new(

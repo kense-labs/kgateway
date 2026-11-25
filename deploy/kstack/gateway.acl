@@ -1,0 +1,38 @@
+mode { kind = "cloud-managed" }
+
+managed {
+  gateway_id = "bc64802d-aeb2-4b34-80db-5f1d51921835"
+  state_file = "/var/lib/kgateway/snapshot.json"
+  usage_spool {
+    directory = "/var/lib/kgateway/usage"
+    cloud_ingest_endpoint = "https://control-plane:9443/v1/usage"
+    cloud_ingest_token_env = "KGATEWAY_USAGE_TOKEN"
+    cloud_ingest_server_ca_file = "/run/kense/tls/platform-ca.pem"
+  }
+  platform {
+    signing_key_file = "/run/kense/tls/service-signing.key"
+    budget_state_file = "/var/lib/kgateway/budget.json"
+    audit_receipt_endpoint = "https://control-plane:9443/v1/audit/admissions"
+  }
+}
+
+management {
+  enabled = true
+  address = "0.0.0.0:9444"
+  auth_token_env = "KGATEWAY_NODE_TOKEN"
+  allowed_ips = ["172.29.249.10"]
+  tls {
+    cert_file = "/run/kense/tls/node.crt"
+    key_file = "/run/kense/tls/node.key"
+    client_ca_file = "/run/kense/tls/node-client-ca.pem"
+    require_client_cert = true
+  }
+}
+
+entrypoints "public" {
+  address = "0.0.0.0:8443"
+  tls {
+    cert_file = "/run/kense/tls/edge.crt"
+    key_file = "/run/kense/tls/edge.key"
+  }
+}

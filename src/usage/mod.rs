@@ -87,7 +87,12 @@ pub(crate) fn build_usage_cloud_ingest_transport(
             "environment variable '{token_env}' required by managed.usage_spool.cloud_ingest_token_env is not set"
         ))
     })?;
-    let transport = HttpUsageCloudTransport::new(endpoint, token).map_err(|error| {
+    let transport = HttpUsageCloudTransport::with_bearer(
+        endpoint,
+        token,
+        spool.cloud_ingest_server_ca_file.as_deref(),
+    )
+    .map_err(|error| {
         GatewayError::Config(format!(
             "managed.usage_spool Cloud ingest transport is invalid: {error}"
         ))
@@ -131,10 +136,13 @@ pub(crate) const MAX_USAGE_EVENT_BYTES: usize = 64 * 1024;
 
 const MANIFEST_SCHEMA_V1: &str = "a3s.gateway.usage-spool-manifest.v1";
 const MANIFEST_SCHEMA_V2: &str = "a3s.gateway.usage-spool-manifest.v2";
-const MANIFEST_SCHEMA: &str = "a3s.gateway.usage-spool-manifest.v3";
+const MANIFEST_SCHEMA: &str = "kgateway.usage-spool-manifest.v3";
+const LEGACY_MANIFEST_V3: &str = "a3s.gateway.usage-spool-manifest.v3";
 const LEGACY_SEGMENT_SCHEMA: &str = "a3s.gateway.usage-spool-segment.v1";
-const SEGMENT_SCHEMA: &str = "a3s.gateway.usage-spool-segment.v2";
-const RECORD_SCHEMA: &str = "a3s.gateway.usage-spool-record.v1";
+const SEGMENT_SCHEMA: &str = "kgateway.usage-spool-segment.v2";
+const LEGACY_SEGMENT_V2: &str = "a3s.gateway.usage-spool-segment.v2";
+const RECORD_SCHEMA: &str = "kgateway.usage-spool-record.v1";
+const LEGACY_RECORD_SCHEMA: &str = "a3s.gateway.usage-spool-record.v1";
 const MAX_MANIFEST_BYTES: usize = 1024 * 1024;
 const MAX_RECORD_LINE_BYTES: usize = 128 * 1024;
 const MAX_REPLAY_BATCH_RECORDS: usize = 512;

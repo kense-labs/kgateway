@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export repeated token-aware A3S Gateway and NGINX AI benchmark trials."""
+"""Export repeated token-aware kgateway and NGINX AI benchmark trials."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from typing import Any
 
 TRIAL_SCHEMA = "a3s.gateway.ai-comparison.trial.v1"
 OUTPUT_SCHEMA = "a3s.gateway.ai-comparison.v1"
-PRODUCTS = ("a3s-gateway", "nginx")
+PRODUCTS = ("kgateway", "nginx")
 PROFILE_DETAILS = {
     "stream-overhead-c1": (
         "Streaming overhead, C1",
@@ -923,7 +923,7 @@ def main() -> int:
         products: dict[str, Any] = {}
         expected_scenario = None
         product_ids = (
-            ("a3s-gateway",)
+            ("kgateway",)
             if profile_id in A3S_ONLY_PROFILES
             else PRODUCTS
         )
@@ -954,7 +954,7 @@ def main() -> int:
             }
 
         label, workload = PROFILE_DETAILS[profile_id]
-        a3s = products["a3s-gateway"]["median"]
+        a3s = products["kgateway"]["median"]
         if profile_id in A3S_ONLY_PROFILES:
             profiles[profile_id] = {
                 "label": label,
@@ -1004,7 +1004,7 @@ def main() -> int:
             "kernel": args.kernel,
         },
         "versions": {
-            "a3s_gateway": args.a3s_version,
+            "kgateway": args.a3s_version,
             "nginx": args.nginx_version,
             "deterministic_upstream": args.upstream_version,
             "streaming_load_client": args.load_version,
@@ -1050,7 +1050,7 @@ def main() -> int:
     summary: dict[str, Any] = {}
     for profile_id, profile in profiles.items():
         entry: dict[str, Any] = {
-            "a3s": profile["products"]["a3s-gateway"]["median"],
+            "a3s": profile["products"]["kgateway"]["median"],
             "comparison": profile["comparison"],
         }
         if "nginx" in profile["products"]:

@@ -416,6 +416,7 @@ impl Gateway {
             self.middleware_registry.as_ref(),
             None,
             usage_spool,
+            self.platform_budget.clone(),
         )
         .await
         {
@@ -552,6 +553,11 @@ impl Gateway {
                 gateway_id,
                 crate::config::DEFAULT_USAGE_CLOUD_INGEST_BATCH_LIMIT,
             );
+            let uploader = if config.managed.platform.is_some() {
+                uploader.with_platform_contract()
+            } else {
+                uploader
+            };
             let handle =
                 spawn_usage_cloud_uploader_loop(uploader, transport, self.shutdown_tx.subscribe());
             *self.usage_uploader_handle.write().unwrap() = Some(handle);

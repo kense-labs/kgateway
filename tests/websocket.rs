@@ -1,13 +1,13 @@
 //! End-to-end WebSocket handshake and forwarding coverage.
 
-use a3s_gateway::config::{
-    EntrypointConfig, GatewayConfig, LoadBalancerConfig, MiddlewareConfig, Protocol, RouterConfig,
-    ServerConfig, ServiceConfig, Strategy,
-};
-use a3s_gateway::Gateway;
 use futures_util::{SinkExt, StreamExt};
 use http::header::{AUTHORIZATION, COOKIE, ORIGIN, SEC_WEBSOCKET_PROTOCOL};
 use http::HeaderValue;
+use kgateway::config::{
+    EntrypointConfig, GatewayConfig, LoadBalancerConfig, MiddlewareConfig, Protocol, RouterConfig,
+    ServerConfig, ServiceConfig, Strategy,
+};
+use kgateway::Gateway;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -92,6 +92,7 @@ fn gateway_config(
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: Vec::new(),
@@ -118,6 +119,7 @@ fn gateway_config(
         mode: Default::default(),
         managed: Default::default(),
         inference: None,
+        platform_policy: None,
         entrypoints,
         routers,
         services,

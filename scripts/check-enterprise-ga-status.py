@@ -340,9 +340,9 @@ def check_soak_wrapper_envelope_pins() -> list[str]:
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8")
-        if "A3S_GATEWAY_DEDICATED_RUNNER" not in text:
+        if "KGATEWAY_DEDICATED_RUNNER" not in text:
             errors.append(
-                f"{path.name} must require A3S_GATEWAY_DEDICATED_RUNNER"
+                f"{path.name} must require KGATEWAY_DEDICATED_RUNNER"
             )
         if "7200" not in text:
             errors.append(
@@ -876,6 +876,32 @@ def check_status() -> list[str]:
     return errors
 
 
+def check_release_manifest() -> tuple[dict[str, str], list[str]]:
+    path = ROOT / "release.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    expected = {"published-long-soak", "independent-security-review", "production-adoption"}
+    open_gates = set(manifest["open_gates"])
+    errors = check_security_md_reporting()
+    if manifest["maturity"] != "production-candidate" or open_gates != expected:
+        errors.append("Release promotion requires published capacity, review, and adoption evidence")
+    if not AUDIT_TOML.is_file() or audit_ignore_ids(AUDIT_TOML.read_text(encoding="utf-8")):
+        errors.append("Release dependency audit must retain an empty advisory ignore list")
+    ci = CI_WORKFLOW.read_text(encoding="utf-8") if CI_WORKFLOW.is_file() else ""
+    if not supply_chain_audit_is_wired(ci) or not enterprise_ga_smoke_covers_linux_and_windows(ci):
+        errors.append("Release CI must run dependency audit and both platform smoke jobs")
+    errors.extend(check_soak_wrapper_envelope_pins())
+    for result in soak_json_files():
+        payload = json.loads(result.read_text(encoding="utf-8"))
+        if result.name.startswith("lab-"):
+            errors.extend(check_lab_draft_while_published_open(result, payload))
+        elif result.name.startswith("smoke-"):
+            errors.extend(check_smoke_while_published_open(result, payload))
+        elif result.name.startswith("published-"):
+            errors.append(f"{result.name} is present while the published capacity gate is open")
+        errors.extend(check_committed_soak_result_contract(result, payload))
+    return dict.fromkeys(sorted(open_gates), "Open"), errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -885,9 +911,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    checklist = CHECKLIST.read_text(encoding="utf-8") if CHECKLIST.is_file() else ""
-    statuses = parse_checklist_statuses(checklist) if checklist else {}
-    errors = check_status()
+    statuses, errors = check_release_manifest()
     open_gates = sorted(k for k, v in statuses.items() if v == "Open")
     summary = {
         "enterprise_ga": len(errors) == 0 and not open_gates,
@@ -910,7 +934,7 @@ def main(argv: list[str] | None = None) -> int:
             for error in errors:
                 print(f"  - {error}")
         elif open_gates:
-            print("OK: checklist/ROADMAP/soak artifacts are consistent with Pre-GA")
+            print("OK: release metadata and soak artifacts are consistent")
         else:
             print("OK: all checklist gates Landed with consistent evidence")
 

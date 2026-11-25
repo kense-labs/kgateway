@@ -130,9 +130,10 @@ impl HttpProxy {
         timeout: Duration,
         connect_timeout: Duration,
         ca_file: &str,
+        identity_file: Option<&str>,
     ) -> std::result::Result<Self, String> {
         Ok(Self {
-            clients: build_clients_with_ca_file(connect_timeout, ca_file)?,
+            clients: build_clients_with_ca_file(connect_timeout, ca_file, identity_file)?,
             timeout,
         })
     }
@@ -495,15 +496,9 @@ pub(crate) fn load_root_certs(ca_file: &str) -> std::result::Result<rustls::Root
 fn build_clients_with_ca_file(
     connect_timeout: Duration,
     ca_file: &str,
+    identity_file: Option<&str>,
 ) -> std::result::Result<Box<[ProxyClient]>, String> {
-    let roots = load_root_certs(ca_file)?;
-    let tls_config = rustls::ClientConfig::builder_with_provider(Arc::new(
-        rustls::crypto::ring::default_provider(),
-    ))
-    .with_safe_default_protocol_versions()
-    .map_err(|error| error.to_string())?
-    .with_root_certificates(roots)
-    .with_no_client_auth();
+    let tls_config = super::tls::private_client_config(ca_file, identity_file)?;
     let connector = HttpsConnectorBuilder::new()
         .with_tls_config(tls_config)
         .https_or_http()

@@ -5,6 +5,7 @@
 //! bounded machine contract required to operate the Gateway data plane.
 
 mod managed;
+mod platform;
 
 use crate::config::{GatewayConfig, ManagementConfig, ManagementTlsConfig};
 use crate::error::{GatewayError, Result};
@@ -47,6 +48,7 @@ pub(crate) struct NodeApiState {
     pub reload_managed_snapshot: Option<ManagedSnapshotReloadCallback>,
     pub managed_snapshots: Arc<ManagedSnapshotStore>,
     pub usage_spool: Arc<RwLock<Option<Arc<UsageSpool>>>>,
+    pub platform_budget: Option<Arc<crate::platform::BudgetStore>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -572,6 +574,9 @@ async fn handle_node_api_request(
 
     if req.method() == Method::POST && api.matches_subpath(&path, "/snapshots/apply") {
         return Ok(managed::handle_apply(req, remote_addr, &state).await);
+    }
+    if api.matches_subpath(&path, "/platform/revocations") {
+        return Ok(platform::handle_revocations(req, &state).await);
     }
     if req.method() == Method::GET && api.matches_subpath(&path, "/snapshots/status") {
         return Ok(managed::handle_status(

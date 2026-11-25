@@ -1,5 +1,8 @@
 #![cfg(feature = "kube")]
 
+#[path = "support/node_auth.rs"]
+mod node_auth;
+
 use bytes::Bytes;
 use http::{Method, StatusCode};
 use http_body_util::{BodyExt, Full};
@@ -277,8 +280,9 @@ struct GatewayProcess {
 
 impl GatewayProcess {
     fn start(config_path: &Path, kubeconfig_path: &Path) -> Self {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_a3s-gateway"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_kgateway"));
         command
+            .env(node_auth::TOKEN_ENV, node_auth::TOKEN)
             .arg("--config")
             .arg(config_path)
             .arg("--log-level")
@@ -311,6 +315,7 @@ impl GatewayProcess {
                 .get(format!(
                     "http://127.0.0.1:{management_port}/api/gateway/health"
                 ))
+                .bearer_auth(node_auth::TOKEN)
                 .send()
                 .await
             {
@@ -398,7 +403,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 
@@ -466,19 +471,24 @@ async fn real_gateway_reconciles_ambiguous_kubernetes_scale_across_process_resta
         .requests
         .iter()
         .all(|request| request.path == SCALE_PATH));
-    assert_eq!(final_state.requests[0].method, Method::GET);
-    assert_eq!(final_state.requests[1].method, Method::PATCH);
+    let patch_index = final_state
+        .requests
+        .iter()
+        .position(|request| request.method == Method::PATCH)
+        .unwrap();
+    assert!(patch_index > 0 && patch_index + 1 < final_state.requests.len());
+    let (before, after) = final_state.requests.split_at(patch_index);
+    assert!(before
+        .iter()
+        .chain(&after[1..])
+        .all(|request| request.method == Method::GET));
     assert_eq!(
-        serde_json::from_slice::<Value>(&final_state.requests[1].body).unwrap(),
+        serde_json::from_slice::<Value>(&after[0].body).unwrap(),
         json!({
             "metadata": { "resourceVersion": "1" },
             "spec": { "replicas": 1 }
         })
     );
-    assert!(final_state.requests[2..]
-        .iter()
-        .all(|request| request.method == Method::GET));
-
     restarted.stop().await;
     wait_for_ports_released(&[traffic_port, management_port]).await;
 }

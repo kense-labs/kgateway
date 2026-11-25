@@ -220,7 +220,7 @@ mod serve {
 
     /// Run the wire proxy: gate every request, forward the masked call to `upstream_base`, un-mask the
     /// response. `upstream_base` is a single provider origin (e.g. `https://api.anthropic.com`); per-
-    /// provider routing is a3s-gateway's existing routing concern, intentionally not duplicated here.
+    /// provider routing is kgateway's existing routing concern, intentionally not duplicated here.
     pub async fn serve(
         addr: SocketAddr,
         gate: Arc<WireGate>,

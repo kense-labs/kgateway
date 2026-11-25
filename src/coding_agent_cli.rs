@@ -96,8 +96,8 @@ pub(crate) struct SkillSearchArgs {
     skill_dirs: Vec<PathBuf>,
 }
 
-pub(crate) async fn operate_agent(command: &AgentCommands) -> a3s_gateway::Result<()> {
-    use a3s_gateway::agent::{find_executable, AgentRegistry, AgentRuntime};
+pub(crate) async fn operate_agent(command: &AgentCommands) -> kgateway::Result<()> {
+    use kgateway::agent::{find_executable, AgentRegistry, AgentRuntime};
 
     let registry = AgentRegistry::with_builtins();
     match command {
@@ -117,7 +117,7 @@ pub(crate) async fn operate_agent(command: &AgentCommands) -> a3s_gateway::Resul
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&profiles)
-                        .map_err(|error| a3s_gateway::GatewayError::Other(error.to_string()))?
+                        .map_err(|error| kgateway::GatewayError::Other(error.to_string()))?
                 );
             } else {
                 for profile in registry.profiles() {
@@ -151,7 +151,7 @@ pub(crate) async fn operate_agent(command: &AgentCommands) -> a3s_gateway::Resul
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&body)
-                        .map_err(|error| a3s_gateway::GatewayError::Other(error.to_string()))?
+                        .map_err(|error| kgateway::GatewayError::Other(error.to_string()))?
                 );
             } else {
                 println!("Agent:       {} ({})", profile.display_name(), profile.id());
@@ -195,8 +195,8 @@ pub(crate) async fn operate_agent(command: &AgentCommands) -> a3s_gateway::Resul
     Ok(())
 }
 
-pub(crate) async fn operate_skill(command: &SkillCommands) -> a3s_gateway::Result<()> {
-    use a3s_gateway::agent::{AgentRegistry, AgentRuntime, SkillCatalog, SkillDiscovery};
+pub(crate) async fn operate_skill(command: &SkillCommands) -> kgateway::Result<()> {
+    use kgateway::agent::{AgentRegistry, AgentRuntime, SkillCatalog, SkillDiscovery};
 
     let registry = AgentRegistry::with_builtins();
     match command {
@@ -216,7 +216,7 @@ pub(crate) async fn operate_skill(command: &SkillCommands) -> a3s_gateway::Resul
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&skills)
-                        .map_err(|error| a3s_gateway::GatewayError::Other(error.to_string()))?
+                        .map_err(|error| kgateway::GatewayError::Other(error.to_string()))?
                 );
             } else {
                 for skill in catalog.skills() {
@@ -250,7 +250,7 @@ pub(crate) async fn operate_skill(command: &SkillCommands) -> a3s_gateway::Resul
             task,
         } => {
             if task.trim().is_empty() {
-                return Err(a3s_gateway::GatewayError::Skill(
+                return Err(kgateway::GatewayError::Skill(
                     "--task must not be empty".to_string(),
                 ));
             }
@@ -274,9 +274,9 @@ pub(crate) async fn operate_skill(command: &SkillCommands) -> a3s_gateway::Resul
 
 fn discover_skills(
     search: &SkillSearchArgs,
-    registry: &a3s_gateway::agent::AgentRegistry,
-) -> a3s_gateway::Result<a3s_gateway::agent::SkillCatalog> {
-    use a3s_gateway::agent::{SkillCatalog, SkillDiscovery};
+    registry: &kgateway::agent::AgentRegistry,
+) -> kgateway::Result<kgateway::agent::SkillCatalog> {
+    use kgateway::agent::{SkillCatalog, SkillDiscovery};
 
     let mut discovery = SkillDiscovery::new(&search.workspace)
         .with_explicit_roots(search.skill_dirs.iter().cloned());
@@ -303,11 +303,11 @@ fn join_arguments(arguments: &[OsString]) -> String {
     }
 }
 
-fn require_agent_success(agent: &str, status: std::process::ExitStatus) -> a3s_gateway::Result<()> {
+fn require_agent_success(agent: &str, status: std::process::ExitStatus) -> kgateway::Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(a3s_gateway::GatewayError::Agent(format!(
+        Err(kgateway::GatewayError::Agent(format!(
             "agent `{agent}` exited with {}",
             status
                 .code()

@@ -477,7 +477,7 @@ fn validate_credential_prefix(prefix: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_argon2id_verifier(verifier_hash: &str) -> Result<()> {
+pub(crate) fn validate_argon2id_verifier(verifier_hash: &str) -> Result<()> {
     if verifier_hash.is_empty() || verifier_hash.len() > MAX_VERIFIER_BYTES {
         return Err(config_error(format!(
             "inference credential verifier_hash must contain 1 to {MAX_VERIFIER_BYTES} bytes"

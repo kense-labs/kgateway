@@ -107,7 +107,7 @@ class ExporterTests(unittest.TestCase):
             root = Path(directory)
             for spec in EXPORTER.PROFILE_SPECS:
                 payload = oha if spec["generator"] == "oha" else protocol
-                for proxy in ("a3s-gateway", "nginx"):
+                for proxy in ("kgateway", "nginx"):
                     for trial in (1, 2):
                         path = root / f"{spec['id']}-{proxy}-{trial}.json"
                         path.write_text(json.dumps(payload), encoding="utf-8")
@@ -121,7 +121,7 @@ class ExporterTests(unittest.TestCase):
                 "--commit",
                 "a" * 40,
                 "--run-url",
-                "https://github.com/A3S-Lab/Gateway/actions/runs/1",
+                "https://github.com/kense-labs/kgateway/actions/runs/1",
                 "--generated-at",
                 "2026-08-05T00:00:00Z",
                 "--runner-image",
@@ -135,7 +135,7 @@ class ExporterTests(unittest.TestCase):
                 "--kernel",
                 "Linux",
                 "--a3s-version",
-                "a3s-gateway 1.0.12",
+                "kgateway 1.0.12",
                 "--nginx-version",
                 "nginx/1.24.0",
                 "--oha-version",

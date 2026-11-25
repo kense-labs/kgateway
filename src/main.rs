@@ -5,11 +5,11 @@ use coding_agent_cli::{operate_agent, operate_skill, AgentCommands, SkillCommand
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
-/// A3S Gateway — AI-native API gateway
+/// kgateway — AI-native API gateway
 #[derive(Parser)]
 #[command(
-    name = "a3s-gateway",
-    version = concat!(env!("CARGO_PKG_VERSION"), " ", env!("A3S_GATEWAY_GIT_SHA")),
+    name = "kgateway",
+    version = concat!(env!("CARGO_PKG_VERSION"), " ", env!("KGATEWAY_GIT_SHA")),
     about
 )]
 struct Cli {
@@ -31,7 +31,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Update a3s-gateway to the latest version
+    /// Update kgateway to the latest version
     Update,
     /// Validate a configuration file without starting the gateway
     Validate {
@@ -92,7 +92,7 @@ enum ConfigCommands {
 }
 
 #[tokio::main]
-async fn main() -> a3s_gateway::Result<()> {
+async fn main() -> kgateway::Result<()> {
     // rustls 0.23 with both `aws-lc-rs` and `ring` in the dep graph refuses to
     // auto-pick a CryptoProvider; install `ring` explicitly so kube-rs/reqwest
     // TLS clients don't panic on first use.
@@ -103,14 +103,14 @@ async fn main() -> a3s_gateway::Result<()> {
     // Handle update subcommand early
     if matches!(cli.command, Some(Commands::Update)) {
         return a3s_updater::run_update(&a3s_updater::UpdateConfig {
-            binary_name: "a3s-gateway",
-            crate_name: "a3s-gateway",
+            binary_name: "kgateway",
+            crate_name: "kgateway",
             current_version: env!("CARGO_PKG_VERSION"),
-            github_owner: "A3S-Lab",
-            github_repo: "Gateway",
+            github_owner: "kense-labs",
+            github_repo: "kgateway",
         })
         .await
-        .map_err(|e| a3s_gateway::GatewayError::Other(e.to_string()));
+        .map_err(|e| kgateway::GatewayError::Other(e.to_string()));
     }
 
     // Handle validate subcommand
@@ -144,7 +144,7 @@ async fn main() -> a3s_gateway::Result<()> {
         )
         .init();
 
-    tracing::info!("A3S Gateway v{}", env!("CARGO_PKG_VERSION"));
+    tracing::info!("kgateway v{}", env!("CARGO_PKG_VERSION"));
 
     // Inline wire firewall — a self-contained proxy, not part of the routing pipeline.
     #[cfg(feature = "wire")]
@@ -154,43 +154,40 @@ async fn main() -> a3s_gateway::Result<()> {
         sentry_config,
     }) = &cli.command
     {
-        let gate = Arc::new(a3s_gateway::wire::WireGate::from_acl(sentry_config)?);
-        let addr = listen.parse().map_err(|e| {
-            a3s_gateway::GatewayError::Config(format!("bad --listen `{listen}`: {e}"))
-        })?;
+        let gate = Arc::new(kgateway::wire::WireGate::from_acl(sentry_config)?);
+        let addr = listen
+            .parse()
+            .map_err(|e| kgateway::GatewayError::Config(format!("bad --listen `{listen}`: {e}")))?;
         tracing::info!(listen = %listen, upstream = %upstream, "Starting a3s inline wire firewall");
-        return a3s_gateway::wire::serve(addr, gate, Arc::new(upstream.clone()))
+        return kgateway::wire::serve(addr, gate, Arc::new(upstream.clone()))
             .await
-            .map_err(|e| a3s_gateway::GatewayError::Other(e.to_string()));
+            .map_err(|e| kgateway::GatewayError::Other(e.to_string()));
     }
 
     // Load configuration — missing path fails closed (same posture as
-    // `a3s-gateway validate`). Soft-defaulting to an empty 0.0.0.0:80 listener
+    // `kgateway validate`). Soft-defaulting to an empty 0.0.0.0:80 listener
     // would hide typos and start an unintended process.
     if !std::path::Path::new(&cli.config).exists() {
-        return Err(a3s_gateway::GatewayError::Config(format!(
+        return Err(kgateway::GatewayError::Config(format!(
             "Config file not found: {}",
             cli.config
         )));
     }
     tracing::info!(config = cli.config, "Loading configuration");
-    let mut config = a3s_gateway::provider::load_merged_gateway_config(&cli.config)?;
+    let mut config = kgateway::provider::load_merged_gateway_config(&cli.config)?;
 
     // Override listen address if provided
     if let Some(listen) = &cli.listen {
         config.entrypoints.insert(
             "web".to_string(),
-            a3s_gateway::config::EntrypointConfig::new(listen),
+            kgateway::config::EntrypointConfig::new(listen),
         );
     }
 
     // Path-aware construct: same parent-watch probe as FileWatcher::watch when
     // providers.file.watch is enabled (load_merged already probed; re-probe
     // keeps Gateway::new_at_path ≡ CLI activate).
-    let gateway = Arc::new(a3s_gateway::Gateway::new_at_path(
-        config.clone(),
-        &cli.config,
-    )?);
+    let gateway = Arc::new(kgateway::Gateway::new_at_path(config.clone(), &cli.config)?);
     gateway.start().await?;
 
     tracing::info!("Gateway ready — press Ctrl+C to stop");
@@ -198,7 +195,7 @@ async fn main() -> a3s_gateway::Result<()> {
     // Start hot reload watcher if configured
     if let Some(ref file_config) = config.providers.file {
         if file_config.watch {
-            let watcher = a3s_gateway::provider::FileWatcher::new(&cli.config);
+            let watcher = kgateway::provider::FileWatcher::new(&cli.config);
             let watcher = if let Some(ref dir) = file_config.directory {
                 watcher.with_directory(dir)
             } else {
@@ -236,7 +233,7 @@ async fn main() -> a3s_gateway::Result<()> {
                     // providers.file.watch requested hot reload; continuing
                     // without it soft-opens a different operational contract.
                     gateway.shutdown().await;
-                    return Err(a3s_gateway::GatewayError::Config(format!(
+                    return Err(kgateway::GatewayError::Config(format!(
                         "providers.file.watch is enabled but the file watcher could not start: {e}"
                     )));
                 }
@@ -250,7 +247,7 @@ async fn main() -> a3s_gateway::Result<()> {
     Ok(())
 }
 
-async fn inspect_config(path: &str, command: &ConfigCommands) -> a3s_gateway::Result<()> {
+async fn inspect_config(path: &str, command: &ConfigCommands) -> kgateway::Result<()> {
     let config = load_validated_config(path).await?;
 
     match command {
@@ -262,7 +259,7 @@ async fn inspect_config(path: &str, command: &ConfigCommands) -> a3s_gateway::Re
         ConfigCommands::Providers => print!("{}", render_providers(&config)),
         ConfigCommands::Json => {
             let json = serde_json::to_string_pretty(&config)
-                .map_err(|e| a3s_gateway::GatewayError::Other(e.to_string()))?;
+                .map_err(|e| kgateway::GatewayError::Other(e.to_string()))?;
             println!("{}", json);
         }
     }
@@ -270,13 +267,11 @@ async fn inspect_config(path: &str, command: &ConfigCommands) -> a3s_gateway::Re
     Ok(())
 }
 
-async fn load_validated_config(
-    path: &str,
-) -> a3s_gateway::Result<a3s_gateway::config::GatewayConfig> {
-    a3s_gateway::provider::load_merged_gateway_config(path)
+async fn load_validated_config(path: &str) -> kgateway::Result<kgateway::config::GatewayConfig> {
+    kgateway::provider::load_merged_gateway_config(path)
 }
 
-fn render_config_summary(config: &a3s_gateway::config::GatewayConfig) -> String {
+fn render_config_summary(config: &kgateway::config::GatewayConfig) -> String {
     use std::fmt::Write;
 
     let mut out = String::new();
@@ -304,7 +299,7 @@ fn render_config_summary(config: &a3s_gateway::config::GatewayConfig) -> String 
     out
 }
 
-fn render_entrypoints(config: &a3s_gateway::config::GatewayConfig) -> String {
+fn render_entrypoints(config: &kgateway::config::GatewayConfig) -> String {
     use std::fmt::Write;
 
     let mut out = String::new();
@@ -321,7 +316,7 @@ fn render_entrypoints(config: &a3s_gateway::config::GatewayConfig) -> String {
     out
 }
 
-fn render_routes(config: &a3s_gateway::config::GatewayConfig) -> String {
+fn render_routes(config: &kgateway::config::GatewayConfig) -> String {
     use std::fmt::Write;
 
     let mut out = String::new();
@@ -341,7 +336,7 @@ fn render_routes(config: &a3s_gateway::config::GatewayConfig) -> String {
     out
 }
 
-fn render_services(config: &a3s_gateway::config::GatewayConfig) -> String {
+fn render_services(config: &kgateway::config::GatewayConfig) -> String {
     use std::fmt::Write;
 
     let mut out = String::new();
@@ -364,7 +359,7 @@ fn render_services(config: &a3s_gateway::config::GatewayConfig) -> String {
     out
 }
 
-fn render_middlewares(config: &a3s_gateway::config::GatewayConfig) -> String {
+fn render_middlewares(config: &kgateway::config::GatewayConfig) -> String {
     use std::fmt::Write;
 
     let mut out = String::new();
@@ -376,7 +371,7 @@ fn render_middlewares(config: &a3s_gateway::config::GatewayConfig) -> String {
     out
 }
 
-fn render_providers(config: &a3s_gateway::config::GatewayConfig) -> String {
+fn render_providers(config: &kgateway::config::GatewayConfig) -> String {
     use std::fmt::Write;
 
     let mut out = String::new();
@@ -386,7 +381,7 @@ fn render_providers(config: &a3s_gateway::config::GatewayConfig) -> String {
     out
 }
 
-fn provider_names(config: &a3s_gateway::config::GatewayConfig) -> Vec<&'static str> {
+fn provider_names(config: &kgateway::config::GatewayConfig) -> Vec<&'static str> {
     let mut providers = Vec::new();
     if config.providers.file.is_some() {
         providers.push("file");
@@ -407,7 +402,7 @@ fn provider_names(config: &a3s_gateway::config::GatewayConfig) -> Vec<&'static s
 }
 
 /// Validate a configuration file and print diagnostics
-async fn validate_config(path: &str) -> a3s_gateway::Result<()> {
+async fn validate_config(path: &str) -> kgateway::Result<()> {
     use std::path::Path;
 
     let config_path = Path::new(path);
@@ -417,7 +412,7 @@ async fn validate_config(path: &str) -> a3s_gateway::Result<()> {
     }
 
     // Parse + merge providers.file.directory fragments (validate ≡ activate).
-    let config = match a3s_gateway::provider::load_merged_gateway_config(path) {
+    let config = match kgateway::provider::load_merged_gateway_config(path) {
         Ok(c) => {
             println!("✓ Config parsed successfully ({})", path);
             c
@@ -501,7 +496,7 @@ async fn validate_config(path: &str) -> a3s_gateway::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use a3s_gateway::config::{
+    use kgateway::config::{
         EntrypointConfig, GatewayConfig, LoadBalancerConfig, Protocol, RouterConfig, ServerConfig,
         ServiceConfig, Strategy,
     };
@@ -549,6 +544,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -579,7 +575,7 @@ mod tests {
 
     #[test]
     fn embedded_git_sha_is_publishable_or_explicitly_unknown() {
-        let sha = env!("A3S_GATEWAY_GIT_SHA");
+        let sha = env!("KGATEWAY_GIT_SHA");
         let clean = sha.len() == 40
             && sha
                 .bytes()
@@ -589,10 +585,7 @@ mod tests {
             && sha.as_bytes()[..40]
                 .iter()
                 .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase());
-        assert!(
-            sha == "unknown" || clean || dirty,
-            "A3S_GATEWAY_GIT_SHA={sha}"
-        );
+        assert!(sha == "unknown" || clean || dirty, "KGATEWAY_GIT_SHA={sha}");
     }
 
     #[test]

@@ -2,7 +2,6 @@
 
 use super::cloud_ingest::{
     UsageCloudTransport, UsageIngestAck, UsageIngestBatch, UsageIngestError,
-    USAGE_INGEST_ACK_SCHEMA,
 };
 use reqwest::StatusCode;
 use std::path::Path;
@@ -12,7 +11,10 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub(crate) enum UsageCloudAuth {
     /// Transitional bearer token (fixtures / migration). Prefer [`Self::Mtls`].
-    Bearer { token: String },
+    Bearer {
+        token: String,
+        server_ca_pem: Option<Vec<u8>>,
+    },
     /// Node-control-compatible client certificate identity.
     Mtls {
         identity_pem: Vec<u8>,
@@ -28,11 +30,36 @@ pub(crate) struct HttpUsageCloudTransport {
 }
 
 impl HttpUsageCloudTransport {
+    pub(crate) fn authenticated_post(&self, endpoint: &str) -> reqwest::RequestBuilder {
+        let request = self.client.post(endpoint);
+        match &self.auth {
+            UsageCloudAuth::Bearer { token, .. } => request.bearer_auth(token),
+            UsageCloudAuth::Mtls { .. } => request,
+        }
+    }
+
+    #[cfg(test)]
     pub(crate) fn new(endpoint: String, bearer_token: String) -> Result<Self, UsageIngestError> {
+        Self::with_bearer(endpoint, bearer_token, None)
+    }
+
+    pub(crate) fn with_bearer(
+        endpoint: String,
+        bearer_token: String,
+        ca_file: Option<&Path>,
+    ) -> Result<Self, UsageIngestError> {
+        let server_ca_pem =
+            ca_file
+                .map(std::fs::read)
+                .transpose()
+                .map_err(|error| UsageIngestError::Contract {
+                    reason: format!("could not read usage server CA: {error}"),
+                })?;
         Self::with_auth(
             endpoint,
             UsageCloudAuth::Bearer {
                 token: bearer_token,
+                server_ca_pem,
             },
         )
     }
@@ -76,15 +103,35 @@ impl HttpUsageCloudTransport {
         }
         let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
-            .user_agent(concat!("a3s-gateway/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("kgateway/", env!("CARGO_PKG_VERSION")))
             .redirect(reqwest::redirect::Policy::none())
             .referer(false);
         match &auth {
-            UsageCloudAuth::Bearer { token } => {
+            UsageCloudAuth::Bearer {
+                token,
+                server_ca_pem,
+            } => {
                 if token.is_empty() {
                     return Err(UsageIngestError::Contract {
                         reason: "usage ingest bearer token must not be empty".to_string(),
                     });
+                }
+                if let Some(pem) = server_ca_pem {
+                    let roots = reqwest::Certificate::from_pem_bundle(pem).map_err(|error| {
+                        UsageIngestError::Contract {
+                            reason: format!("usage server CA bundle is invalid: {error}"),
+                        }
+                    })?;
+                    if roots.is_empty() || !endpoint.starts_with("https://") {
+                        return Err(UsageIngestError::Contract {
+                            reason: "usage server CA requires HTTPS and a non-empty bundle"
+                                .to_owned(),
+                        });
+                    }
+                    builder = builder.use_rustls_tls().tls_built_in_root_certs(false);
+                    for root in roots {
+                        builder = builder.add_root_certificate(root);
+                    }
                 }
             }
             UsageCloudAuth::Mtls {
@@ -160,14 +207,10 @@ impl UsageCloudTransport for HttpUsageCloudTransport {
         &self,
         batch: UsageIngestBatch,
     ) -> Result<UsageIngestAck, UsageIngestError> {
-        let mut request = self
-            .client
-            .post(&self.endpoint)
+        let request = self
+            .authenticated_post(&self.endpoint)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .json(&batch);
-        if let UsageCloudAuth::Bearer { token } = &self.auth {
-            request = request.bearer_auth(token);
-        }
         let response = request
             .send()
             .await
@@ -194,7 +237,7 @@ impl UsageCloudTransport for HttpUsageCloudTransport {
             serde_json::from_slice(&body).map_err(|error| UsageIngestError::Contract {
                 reason: format!("invalid usage ingest receipt JSON: {error}"),
             })?;
-        if ack.schema != USAGE_INGEST_ACK_SCHEMA {
+        if ack.schema != batch.receipt_schema() {
             return Err(UsageIngestError::Contract {
                 reason: format!("unexpected receipt schema '{}'", ack.schema),
             });
@@ -206,7 +249,9 @@ impl UsageCloudTransport for HttpUsageCloudTransport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::usage::cloud_ingest::{UsageIngestRecord, USAGE_INGEST_BATCH_SCHEMA};
+    use crate::usage::cloud_ingest::{
+        UsageIngestRecord, USAGE_INGEST_ACK_SCHEMA, USAGE_INGEST_BATCH_SCHEMA,
+    };
     use crate::usage::UsageSpoolCursor;
     use base64::Engine;
     use sha2::{Digest, Sha256};

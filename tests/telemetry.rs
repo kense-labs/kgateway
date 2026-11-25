@@ -1,11 +1,14 @@
 //! Management-endpoint evidence for topology-bounded service telemetry.
 
-use a3s_gateway::config::{
+#[path = "support/node_auth.rs"]
+mod node_auth;
+
+use futures_util::StreamExt;
+use kgateway::config::{
     EntrypointConfig, GatewayConfig, LoadBalancerConfig, ObservabilityConfig, RouterConfig,
     ServerConfig, ServiceConfig, Strategy,
 };
-use a3s_gateway::Gateway;
-use futures_util::StreamExt;
+use kgateway::Gateway;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -62,11 +65,11 @@ fn config(
     management_address: SocketAddr,
     backend_address: SocketAddr,
 ) -> GatewayConfig {
-    let management = a3s_gateway::config::ManagementConfig {
+    let management = kgateway::config::ManagementConfig {
         enabled: true,
         address: management_address.to_string(),
-        auth_token_env: None,
-        ..a3s_gateway::config::ManagementConfig::default()
+        auth_token_env: Some(node_auth::TOKEN_ENV.to_owned()),
+        ..kgateway::config::ManagementConfig::default()
     };
 
     GatewayConfig {
@@ -101,6 +104,7 @@ fn config(
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: Vec::new(),
@@ -122,6 +126,7 @@ fn config(
 async fn metrics(client: &reqwest::Client, address: SocketAddr) -> String {
     client
         .get(format!("http://{address}/api/gateway/metrics"))
+        .bearer_auth(node_auth::TOKEN)
         .send()
         .await
         .unwrap()
@@ -134,6 +139,7 @@ async fn metrics(client: &reqwest::Client, address: SocketAddr) -> String {
 
 #[tokio::test]
 async fn node_api_metrics_track_stream_ttft_pressure_and_drop_cleanup() {
+    node_auth::configure_in_process();
     let (backend, stream_started, upstream_disconnected) = streaming_backend().await;
     let traffic = free_address().await;
     let management = free_address().await;

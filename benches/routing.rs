@@ -1,7 +1,7 @@
-use a3s_gateway::config::RouterConfig;
-use a3s_gateway::router::RouterTable;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use http::HeaderMap;
+use kgateway::config::RouterConfig;
+use kgateway::router::RouterTable;
 use std::collections::HashMap;
 use std::time::Duration;
 

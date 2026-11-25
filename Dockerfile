@@ -1,27 +1,28 @@
-# a3s-gateway OCI runtime image
+# kgateway OCI runtime image
 #
 # Multi-stage build that accepts a pre-built musl binary.
-# Build context must be the monorepo root.
+# Build context must contain the compiled Linux executable.
 #
 # Build example:
-#   docker build -f crates/gateway/Dockerfile \
-#     --build-arg BINARY_URL=https://github.com/A3S-Lab/a3s/releases/download/v0.2.3/a3s-gateway \
-#     -t a3s-gateway:latest .
+#   docker build -f Dockerfile \
+#     --build-arg BINARY_NAME=kgateway \
+#     -t kgateway:latest .
 
 # ── Stage 1: Runtime ─────────────────────────────────────────────────────────
 FROM alpine:3
 
-ARG BINARY_NAME=a3s-gateway
+ARG BINARY_NAME=kgateway
 ENV BINARY_NAME=${BINARY_NAME}
 
 # Install CA certificates for HTTPS and set timezone data
 RUN apk add --no-cache ca-certificates tzdata && \
-    addgroup -S gateway && adduser -S gateway -G gateway
+    addgroup -S -g 10001 gateway && adduser -S -u 10001 gateway -G gateway && \
+    mkdir -p /var/lib/kgateway && chown gateway:gateway /var/lib/kgateway
 
 WORKDIR /
 
 # Copy the pre-built binary
-COPY --chmod=755 ${BINARY_NAME} /usr/local/bin/a3s-gateway
+COPY --chmod=755 ${BINARY_NAME} /usr/local/bin/kgateway
 
 # Switch to non-root user
 USER gateway
@@ -32,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 
 EXPOSE 80 443 8080
 
-ENTRYPOINT ["a3s-gateway"]
+ENTRYPOINT ["kgateway"]

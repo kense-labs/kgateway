@@ -1,15 +1,15 @@
-//! Integration tests for A3S Gateway
+//! Integration tests for kgateway
 //!
 //! These tests spin up real TCP listeners and HTTP backends to verify
 //! end-to-end request flow through the gateway.
 
-use a3s_gateway::config::{
+use kgateway::config::{
     DiscoveryConfig, DiscoverySeedConfig, EntrypointConfig, GatewayConfig, HealthCheckConfig,
     LoadBalancerConfig, ManagementConfig, ManagementTlsConfig, MiddlewareConfig, OperatingMode,
     Protocol, RevisionConfig, RouterConfig, ServerConfig, ServiceConfig, Strategy,
 };
-use a3s_gateway::provider::FileWatcher;
-use a3s_gateway::Gateway;
+use kgateway::provider::FileWatcher;
+use kgateway::Gateway;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::Path;
@@ -32,7 +32,7 @@ async fn free_port() -> u16 {
     listener.local_addr().unwrap().port()
 }
 
-fn is_address_in_use(error: &a3s_gateway::GatewayError) -> bool {
+fn is_address_in_use(error: &kgateway::GatewayError) -> bool {
     let text = error.to_string();
     text.contains("Address already in use")
         || text.contains("os error 10048")
@@ -461,6 +461,7 @@ async fn build_config(gateway_port: u16, backend_addr: SocketAddr, rule: &str) -
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],
@@ -474,6 +475,7 @@ async fn build_config(gateway_port: u16, backend_addr: SocketAddr, rule: &str) -
         mode: Default::default(),
         managed: Default::default(),
         inference: None,
+        platform_policy: None,
         entrypoints,
         routers,
         services,
@@ -538,8 +540,8 @@ providers {{
 }
 
 async fn wait_for_file_reload(
-    rx: std::sync::mpsc::Receiver<a3s_gateway::provider::file_watcher::ReloadEvent>,
-) -> a3s_gateway::provider::file_watcher::ReloadEvent {
+    rx: std::sync::mpsc::Receiver<kgateway::provider::file_watcher::ReloadEvent>,
+) -> kgateway::provider::file_watcher::ReloadEvent {
     tokio::task::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(5)))
         .await
         .unwrap()

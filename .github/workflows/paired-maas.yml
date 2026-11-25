@@ -1,0 +1,151 @@
+name: Paired MaaS conformance
+
+on:
+  workflow_dispatch:
+    inputs:
+      kstack_repository:
+        description: kstack repository in owner/name form
+        required: true
+        type: string
+      kstack_revision:
+        description: Full kstack commit SHA
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      gateway_repository:
+        description: kgateway repository when called from a different repository
+        type: string
+      gateway_revision:
+        description: Full kgateway commit SHA when called from a different repository
+        type: string
+      kstack_repository:
+        required: true
+        type: string
+      kstack_revision:
+        required: true
+        type: string
+    secrets:
+      KSTACK_READ_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  paired-maas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      TZ: UTC
+      KGATEWAY_REPOSITORY: ${{ inputs.gateway_repository || github.repository }}
+      KGATEWAY_REVISION: ${{ inputs.gateway_revision || github.sha }}
+      KSTACK_REPOSITORY: ${{ inputs.kstack_repository }}
+      KSTACK_REVISION: ${{ inputs.kstack_revision }}
+    steps:
+      - name: Validate the repository and revision pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$KGATEWAY_REPOSITORY" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]
+          [[ "$KGATEWAY_REVISION" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$KSTACK_REPOSITORY" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]
+          [[ "$KSTACK_REVISION" =~ ^[a-f0-9]{40}$ ]]
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.KGATEWAY_REPOSITORY }}
+          ref: ${{ env.KGATEWAY_REVISION }}
+          path: kgateway
+          persist-credentials: false
+
+      - name: Checkout the paired kstack commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.kstack_repository }}
+          ref: ${{ inputs.kstack_revision }}
+          token: ${{ secrets.KSTACK_READ_TOKEN || github.token }}
+          path: kstack
+          persist-credentials: false
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: kstack/go.mod
+          cache-dependency-path: kstack/go.sum
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kstack/ui/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: kgateway
+
+      - name: Build the kstack web bundle
+        working-directory: kstack/ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Build kstack and its test engine
+        working-directory: kstack
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$KSTACK_REVISION"
+          go test ./internal/server/maasidentity ./internal/server/maasusage
+          go build -o "$RUNNER_TEMP/kstack" ./cmd/gpuworks
+          go build -o "$RUNNER_TEMP/fleet-host" ./test/l2/cmd/fleet-host
+
+      - name: Build kgateway and run the paired test
+        working-directory: kgateway
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$KGATEWAY_REVISION"
+          python -m pip install cryptography==50.0.2 mcp==1.29.0 a2a-sdk==1.3.0 openapi-spec-validator==0.7.2
+          PYTHONPATH=control-plane python -m unittest discover -s tests -p 'test_maas_releases.py'
+          cargo build --locked --bin kgateway
+          python tests/kstack_maas_transport.py \
+            --kgateway target/debug/kgateway \
+            --kstack "$RUNNER_TEMP/kstack" \
+            --fleet-host "$RUNNER_TEMP/fleet-host" \
+            --openbao
+          GOBIN="$RUNNER_TEMP/recovery-tools" go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
+          PATH="$RUNNER_TEMP/recovery-tools:$PATH" python tests/kstack_maas_transport.py \
+            --kgateway target/debug/kgateway \
+            --kstack "$RUNNER_TEMP/kstack" \
+            --fleet-host "$RUNNER_TEMP/fleet-host" \
+            --release-rollout --recovery
+          python tests/kstack_maas_transport.py \
+            --kgateway target/debug/kgateway \
+            --kstack "$RUNNER_TEMP/kstack" \
+            --fleet-host "$RUNNER_TEMP/fleet-host" \
+            --performance-output "$RUNNER_TEMP/paired-maas-performance.json"
+          python control-plane/registry.py --config deploy/kstack/control.json --output "$RUNNER_TEMP/registry"
+          cmp contracts/openapi.json "$RUNNER_TEMP/registry/openapi.json"
+          {
+            printf 'kgateway %s\n' "$(git rev-parse HEAD)"
+            printf '%s %s\n' "$KSTACK_REPOSITORY" "$KSTACK_REVISION"
+            PYTHONPATH=tests python -c 'from openbao_kms import IMAGE; print("openbao", IMAGE)'
+            sha256sum contracts/*.schema.json
+            sha256sum contracts/openapi.json
+          } > "$RUNNER_TEMP/paired-revisions.txt"
+
+      - name: Upload the verified revisions and contract digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: paired-maas-revisions
+          path: |
+            ${{ runner.temp }}/paired-revisions.txt
+            ${{ runner.temp }}/paired-maas-performance.json
+            ${{ runner.temp }}/registry
+          if-no-files-found: error

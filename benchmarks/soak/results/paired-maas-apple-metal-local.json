@@ -1,0 +1,1428 @@
+{
+  "schema": "kgateway.paired-maas-performance.v1",
+  "generated_at": "2026-11-25T14:02:21.759169+00:00",
+  "host": {
+    "system": "Darwin",
+    "machine": "arm64",
+    "kernel": "27.2.0",
+    "logical_cpus": 10,
+    "python": "3.13.18",
+    "load_average_start": [
+      12.119140625,
+      16.6806640625,
+      19.11376953125
+    ],
+    "load_average_end": [
+      13.880859375,
+      16.85595703125,
+      19.1337890625
+    ]
+  },
+  "binary_sha256": {
+    "kgateway": "99ed39911c46cfbb0f48fee89270ac86fac208d8df5a13d885cf500a50035bfb",
+    "kstack": "e85c7fe8faf74945646d4d437b308c2dafce18449857a647d258164ccb029079",
+    "kstack-agent": "58aa1ff8d88fa8dfc3e6ff961dcebefb20be1d42deb8b622340a26f40baa5ec0"
+  },
+  "control_plane_sha256": {
+    "audit.py": "fc815ac43c03a056540e2bcd42acce1c78bce8c18a06bd68b8a8341607eefec7",
+    "audit_anchor.py": "648d56bd7364fabee0579e5c8dee7e60631099825fdc4f8d701eb79778bda4fe",
+    "batch_reports.py": "1f31d208ad2948254e6cc7c2ad786dfae34a8f5e13ca83f1e258ec6211b2a9e4",
+    "budget_window.py": "dd25c4d8052c1f0af7aa10c8b38791e83cfc35c6fd303334d54c0452e7343a5f",
+    "delegation.py": "f8bbfd4b698baf143084b83265f66e970c2398aad4f06db7d192d8a3756029f8",
+    "maas_releases.py": "45aaf0601160d06819fdf79af9fe8ae3e8658ed4dd34f683b4f2ec179a368a5f",
+    "main.py": "8786eefa18d767a48094d16700d97e4bfa1c67e19d2d447771cee6a118027908",
+    "recovery.py": "e99f7d500644a633e48a0b8e269ba93a431433c1dd5aa3cab06e2b5cb8686934",
+    "recovery_protocol.py": "c54a25a3f37a866ed6ab42bdb3968a27c5b442872a9a7aea0293c152476056e5",
+    "registry.py": "8eac01a587172d7564477732d789523a4004686fd4ef351fbe98bb737997f538",
+    "replicas.py": "7db09b091109a9b20f184186d17ae7223d9531936908b3c3116ce0d278e03fc1",
+    "state.py": "935b79557bd11e5550d42cabae4fbe47b4c099baed8e26348e87f089335c6838",
+    "usage.py": "8a3c7e4e6a0ade0ca0c1130d86357a2ecb053dd24f192ddfb4469127bc2166a4",
+    "vault.py": "6bb27b5cf3d73b8d20eacc0ab9392daf12311761073c9d9b96e8441c780e959c",
+    "witness.py": "a365a5140be0189c34636af99aae3be10ef264609815b8537fca89c78da771db"
+  },
+  "engine": {
+    "kind": "llama.cpp on a native kstack Apple Metal agent",
+    "image": "registry-1.docker.io/gpuworks/gpuworks-runner@sha256:0d045bdc834340ec2b2f127d8e4e9b3496d8629f205f46fedce7341cffeea332",
+    "model_filename": "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+    "model_sha256": "6eb923e7d26e9cea28811e1a8e852009b21242fb157b26149d3b188f3a8c8653",
+    "gpu_device": "Apple M5",
+    "gpu_offloaded_layers": 25
+  },
+  "workload": {
+    "model": "kense-metal-gguf",
+    "prompt": "Return a short greeting.",
+    "path": "/v1/chat/completions",
+    "requests_per_trial": 16,
+    "concurrency": 2,
+    "warmup_per_trial": 2,
+    "rounds_per_ingress": 2,
+    "transport": "HTTP/1.1 over TLS, one reusable connection per worker",
+    "kgateway": "Kense Key, durable quota and usage, sensitive admission with separate audit witness, then kstack mTLS",
+    "kstack-direct": "private mTLS listener with preissued service credentials and matched usage starts",
+    "percentile": "nearest-rank P99 over all measured requests; warmup excluded"
+  },
+  "results": {
+    "json": {
+      "kstack-direct": {
+        "attempts": 32,
+        "succeeded": 32,
+        "failed": 0,
+        "warmup_errors": 0,
+        "warmup_attempts": 4,
+        "error_rate": 0.0,
+        "requests_per_second": 13.866547585531483,
+        "completed_per_second": 13.866547585531483,
+        "elapsed_seconds": 2.307712125359103,
+        "stream_opened": 0,
+        "stream_interrupted": 0,
+        "stream_interruption_rate": null,
+        "end_to_end_ms": {
+          "count": 32,
+          "median": 134.7923540743068,
+          "p99": 326.49720809422433
+        },
+        "successful_end_to_end_ms": {
+          "count": 32,
+          "median": 134.7923540743068,
+          "p99": 326.49720809422433
+        },
+        "first_token_ms": null
+      },
+      "kgateway": {
+        "attempts": 32,
+        "succeeded": 32,
+        "failed": 0,
+        "warmup_errors": 0,
+        "warmup_attempts": 4,
+        "error_rate": 0.0,
+        "requests_per_second": 8.676323677499974,
+        "completed_per_second": 8.676323677499974,
+        "elapsed_seconds": 3.688198042102158,
+        "stream_opened": 0,
+        "stream_interrupted": 0,
+        "stream_interruption_rate": null,
+        "end_to_end_ms": {
+          "count": 32,
+          "median": 233.5820000153035,
+          "p99": 301.8884579651058
+        },
+        "successful_end_to_end_ms": {
+          "count": 32,
+          "median": 233.5820000153035,
+          "p99": 301.8884579651058
+        },
+        "first_token_ms": null
+      }
+    },
+    "sse": {
+      "kstack-direct": {
+        "attempts": 32,
+        "succeeded": 32,
+        "failed": 0,
+        "warmup_errors": 0,
+        "warmup_attempts": 4,
+        "error_rate": 0.0,
+        "requests_per_second": 12.467626381821859,
+        "completed_per_second": 12.467626381821859,
+        "elapsed_seconds": 2.566647332860157,
+        "stream_opened": 32,
+        "stream_interrupted": 0,
+        "stream_interruption_rate": 0.0,
+        "end_to_end_ms": {
+          "count": 32,
+          "median": 151.53160446789116,
+          "p99": 248.43687494285405
+        },
+        "successful_end_to_end_ms": {
+          "count": 32,
+          "median": 151.53160446789116,
+          "p99": 248.43687494285405
+        },
+        "first_token_ms": {
+          "count": 32,
+          "median": 29.328208416700363,
+          "p99": 47.23329213447869
+        }
+      },
+      "kgateway": {
+        "attempts": 32,
+        "succeeded": 32,
+        "failed": 0,
+        "warmup_errors": 0,
+        "warmup_attempts": 4,
+        "error_rate": 0.0,
+        "requests_per_second": 9.026039348725398,
+        "completed_per_second": 9.026039348725398,
+        "elapsed_seconds": 3.5452980829868466,
+        "stream_opened": 32,
+        "stream_interrupted": 0,
+        "stream_interruption_rate": 0.0,
+        "end_to_end_ms": {
+          "count": 32,
+          "median": 200.23912494070828,
+          "p99": 334.5489581115544
+        },
+        "successful_end_to_end_ms": {
+          "count": 32,
+          "median": 200.23912494070828,
+          "p99": 334.5489581115544
+        },
+        "first_token_ms": {
+          "count": 32,
+          "median": 91.02360403630883,
+          "p99": 155.40908300317824
+        }
+      }
+    }
+  },
+  "trials": [
+    {
+      "mode": "json",
+      "round": 1,
+      "ingress": "kstack-direct",
+      "elapsed_seconds": 1.0929354592226446,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 96.84316697530448,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 96.75429202616215,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 70.37770794704556,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 83.36175000295043,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 110.51212507300079,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 93.05312484502792,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 326.49720809422433,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 131.01841695606709,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 158.03000004962087,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 119.91112516261637,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 70.75366703793406,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 83.36175000295043,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 109.03766704723239,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 93.90474995598197,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 134.0548750013113,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 147.813375107944,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 131.66387495584786,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 172.27233294397593,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "mode": "json",
+      "round": 1,
+      "ingress": "kgateway",
+      "elapsed_seconds": 1.7874258749652654,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 888.367917155847,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 887.936333194375,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 123.76924999989569,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 174.36366714537144,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 163.92066585831344,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 204.71512502990663,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 203.46616697497666,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 260.2855418808758,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 275.39683296345174,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 301.754874875769,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 140.64812497235835,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 182.29358410462737,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 291.59458400681615,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 213.6450840625912,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 254.57429187372327,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 240.11625000275671,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 244.0796671435237,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 220.25058302097023,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "mode": "json",
+      "round": 2,
+      "ingress": "kgateway",
+      "elapsed_seconds": 1.9007721671368927,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 204.70012491568923,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 240.5701670795679,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 229.10574986599386,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 247.74333415552974,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 301.8884579651058,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 223.17237500101328,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 252.199542010203,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 275.96962498500943,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 206.98320912197232,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 163.38050016202033,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 197.87000003270805,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 254.3917498551309,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 292.50908293761313,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 229.05625007115304,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 240.13279215432703,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 239.602959016338,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 238.05825016461313,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 186.32641714066267,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "mode": "json",
+      "round": 2,
+      "ingress": "kstack-direct",
+      "elapsed_seconds": 1.2147766661364585,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 112.12566704489291,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 112.09208308719099,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 113.39266714639962,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 147.72258303128183,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 184.482041047886,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 166.2315831054002,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 129.50666598044336,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 165.9869160503149,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 161.72983311116695,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 145.35441691987216,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 99.75625015795231,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 134.38662514090538,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 172.09599982015789,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 151.10541717149317,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 135.1980830077082,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 142.78895896859467,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 173.31708292476833,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 159.77862500585616,
+          "status": 200,
+          "first_token_ms": null,
+          "stream_opened": false,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "mode": "sse",
+      "round": 1,
+      "ingress": "kstack-direct",
+      "elapsed_seconds": 1.3136877499055117,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 160.2247920818627,
+          "status": 200,
+          "first_token_ms": 33.99916714988649,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 160.3640839457512,
+          "status": 200,
+          "first_token_ms": 33.956042025238276,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 152.23350003361702,
+          "status": 200,
+          "first_token_ms": 34.480541944503784,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 157.92800020426512,
+          "status": 200,
+          "first_token_ms": 31.312833074480295,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 248.43687494285405,
+          "status": 200,
+          "first_token_ms": 37.57258295081556,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 150.8297089021653,
+          "status": 200,
+          "first_token_ms": 29.35233386233449,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 148.139167111367,
+          "status": 200,
+          "first_token_ms": 29.42425012588501,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 166.98941588401794,
+          "status": 200,
+          "first_token_ms": 30.29262484051287,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 144.90549988113344,
+          "status": 200,
+          "first_token_ms": 28.681457974016666,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 143.9997919369489,
+          "status": 200,
+          "first_token_ms": 25.543125113472342,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 138.97570804692805,
+          "status": 200,
+          "first_token_ms": 20.391541067510843,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 153.9043749216944,
+          "status": 200,
+          "first_token_ms": 28.449082979932427,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 240.82325003109872,
+          "status": 200,
+          "first_token_ms": 34.39100016839802,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 164.33791699819267,
+          "status": 200,
+          "first_token_ms": 37.981542060151696,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 147.23829180002213,
+          "status": 200,
+          "first_token_ms": 25.459874887019396,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 159.96770793572068,
+          "status": 200,
+          "first_token_ms": 28.289542067795992,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 148.67754187434912,
+          "status": 200,
+          "first_token_ms": 35.06845887750387,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 146.01783314719796,
+          "status": 200,
+          "first_token_ms": 30.78091610223055,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "mode": "sse",
+      "round": 1,
+      "ingress": "kgateway",
+      "elapsed_seconds": 1.7558451669756323,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 254.9209170974791,
+          "status": 200,
+          "first_token_ms": 127.62099993415177,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 230.0524590536952,
+          "status": 200,
+          "first_token_ms": 97.98600012436509,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 199.9460831284523,
+          "status": 200,
+          "first_token_ms": 81.90204109996557,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 194.99704102054238,
+          "status": 200,
+          "first_token_ms": 88.21058296598494,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 174.65783306397498,
+          "status": 200,
+          "first_token_ms": 69.82870795764029,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 183.86675021611154,
+          "status": 200,
+          "first_token_ms": 72.87420821376145,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 242.37770796753466,
+          "status": 200,
+          "first_token_ms": 102.99666598439217,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 268.15845794044435,
+          "status": 200,
+          "first_token_ms": 93.83662510663271,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 254.24591707997024,
+          "status": 200,
+          "first_token_ms": 147.61199988424778,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 200.05116588436067,
+          "status": 200,
+          "first_token_ms": 78.93691607750952,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 224.3623749818653,
+          "status": 200,
+          "first_token_ms": 110.45183381065726,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 200.33291704021394,
+          "status": 200,
+          "first_token_ms": 98.08075008913875,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 173.66562504321337,
+          "status": 200,
+          "first_token_ms": 73.38170893490314,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 179.59075001999736,
+          "status": 200,
+          "first_token_ms": 66.97741709649563,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 325.9579581208527,
+          "status": 200,
+          "first_token_ms": 104.84787495806813,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 200.14533284120262,
+          "status": 200,
+          "first_token_ms": 103.56133291497827,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 231.49387491866946,
+          "status": 200,
+          "first_token_ms": 121.55074998736382,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 220.09441605769098,
+          "status": 200,
+          "first_token_ms": 108.17116592079401,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "mode": "sse",
+      "round": 2,
+      "ingress": "kgateway",
+      "elapsed_seconds": 1.7894529160112143,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 229.08879187889397,
+          "status": 200,
+          "first_token_ms": 87.90625003166497,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 246.80137494578958,
+          "status": 200,
+          "first_token_ms": 105.79025000333786,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 299.27979107014835,
+          "status": 200,
+          "first_token_ms": 155.40908300317824,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 233.91666589304805,
+          "status": 200,
+          "first_token_ms": 109.79154077358544,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 167.57383407093585,
+          "status": 200,
+          "first_token_ms": 69.67170909047127,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 178.02641703747213,
+          "status": 200,
+          "first_token_ms": 84.95195815339684,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 177.14345804415643,
+          "status": 200,
+          "first_token_ms": 78.20254098623991,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 180.1626670639962,
+          "status": 200,
+          "first_token_ms": 83.34512496367097,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 203.60258407890797,
+          "status": 200,
+          "first_token_ms": 110.5158340651542,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 187.56145797669888,
+          "status": 200,
+          "first_token_ms": 87.62337500229478,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 262.5062079168856,
+          "status": 200,
+          "first_token_ms": 102.09783306345344,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 249.55516681075096,
+          "status": 200,
+          "first_token_ms": 118.70662495493889,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 178.53391612879932,
+          "status": 200,
+          "first_token_ms": 78.98450014181435,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 169.7622500360012,
+          "status": 200,
+          "first_token_ms": 75.64433291554451,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 174.18108391575515,
+          "status": 200,
+          "first_token_ms": 76.04683400131762,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 334.5489581115544,
+          "status": 200,
+          "first_token_ms": 84.10066599026322,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 212.73512509651482,
+          "status": 200,
+          "first_token_ms": 112.9462500102818,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 207.53074996173382,
+          "status": 200,
+          "first_token_ms": 118.24370897375047,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "mode": "sse",
+      "round": 2,
+      "ingress": "kstack-direct",
+      "elapsed_seconds": 1.2529595829546452,
+      "warmup_attempts": 2,
+      "warmup_errors": 0,
+      "warmup_observations": [
+        {
+          "elapsed_ms": 124.71920810639858,
+          "status": 200,
+          "first_token_ms": 24.950292194262147,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 124.23499999567866,
+          "status": 200,
+          "first_token_ms": 24.83508293516934,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ],
+      "observations": [
+        {
+          "elapsed_ms": 122.71954119205475,
+          "status": 200,
+          "first_token_ms": 18.78154114820063,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 149.0470829885453,
+          "status": 200,
+          "first_token_ms": 19.88283288665116,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 137.4737499281764,
+          "status": 200,
+          "first_token_ms": 29.304082971066236,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 148.062959080562,
+          "status": 200,
+          "first_token_ms": 26.11608407460153,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 181.5511251334101,
+          "status": 200,
+          "first_token_ms": 47.23329213447869,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 164.09254190512002,
+          "status": 200,
+          "first_token_ms": 32.114624977111816,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 174.23091712407768,
+          "status": 200,
+          "first_token_ms": 31.00162511691451,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 175.2783339470625,
+          "status": 200,
+          "first_token_ms": 28.975249966606498,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 123.68170800618827,
+          "status": 200,
+          "first_token_ms": 18.732332857325673,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 141.75791712477803,
+          "status": 200,
+          "first_token_ms": 17.852459102869034,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 128.38850007392466,
+          "status": 200,
+          "first_token_ms": 20.175958052277565,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 159.17258383706212,
+          "status": 200,
+          "first_token_ms": 25.059958919882774,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 177.4934579152614,
+          "status": 200,
+          "first_token_ms": 30.496791936457157,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 150.06637503392994,
+          "status": 200,
+          "first_token_ms": 25.247209006920457,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 177.98362509347498,
+          "status": 200,
+          "first_token_ms": 34.82099995017052,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        },
+        {
+          "elapsed_ms": 180.1368750166148,
+          "status": 200,
+          "first_token_ms": 29.759999830275774,
+          "stream_opened": true,
+          "stream_interrupted": false,
+          "error": null
+        }
+      ]
+    }
+  ]
+}

@@ -74,6 +74,7 @@ pub fn build_service_http_proxies(
             request_header_timeout,
             connect_timeout,
             ca_file,
+            svc.load_balancer.tls_client_identity_file.as_deref(),
         )
         .map_err(|error| {
             GatewayError::Config(format!(
@@ -97,7 +98,11 @@ pub fn build_service_grpc_proxies(
         let Some(ca_file) = svc.load_balancer.tls_ca_file.as_deref() else {
             continue;
         };
-        let proxy = crate::proxy::grpc::GrpcProxy::try_with_ca_file(ca_file).map_err(|error| {
+        let proxy = crate::proxy::grpc::GrpcProxy::try_with_ca_file(
+            ca_file,
+            svc.load_balancer.tls_client_identity_file.as_deref(),
+        )
+        .map_err(|error| {
             GatewayError::Config(format!(
                 "Failed to build upstream gRPC TLS client for service '{name}': {error}"
             ))
@@ -119,7 +124,11 @@ pub fn build_service_ws_tls_configs(
         let Some(ca_file) = svc.load_balancer.tls_ca_file.as_deref() else {
             continue;
         };
-        let tls = crate::proxy::websocket::private_ca_client_config(ca_file).map_err(|error| {
+        let tls = crate::proxy::websocket::private_ca_client_config(
+            ca_file,
+            svc.load_balancer.tls_client_identity_file.as_deref(),
+        )
+        .map_err(|error| {
             GatewayError::Config(format!(
                 "Failed to build upstream WebSocket TLS client for service '{name}': {error}"
             ))
@@ -456,6 +465,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: Some(ScalingConfig {
                     container_concurrency: 10,
@@ -490,6 +500,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![
@@ -539,6 +550,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: Some(ScalingConfig {
                     container_concurrency: 1,
@@ -593,6 +605,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: Some(ScalingConfig {
                     buffer_enabled: false,
@@ -630,6 +643,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: Some(ScalingConfig {
                     buffer_enabled: true,
@@ -798,6 +812,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -892,6 +907,7 @@ mod tests {
                         cookie: "session_id".to_string(),
                     }),
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -928,6 +944,7 @@ mod tests {
                         cookie: "bad name".to_string(),
                     }),
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -966,6 +983,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -1007,6 +1025,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -1032,6 +1051,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -1068,6 +1088,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],
@@ -1114,6 +1135,7 @@ mod tests {
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: vec![],

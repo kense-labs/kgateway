@@ -203,16 +203,18 @@ async fn probe_activation_fails_closed_when_spool_parent_is_not_a_directory() {
         "cold-start probe must fail when spool parent cannot be created: {error}"
     );
 
-    // Runtime re-validation must not create-or-fail on a missing path.
+    // Runtime re-validation must not create a missing directory under a valid parent.
+    let absent = spool_directory(directory.path());
     super::persistence::probe_activation(
         &UsageSpoolOptions {
-            directory: spool,
+            directory: absent.clone(),
             gateway_id,
             max_bytes: 1024 * 1024,
         },
         false,
     )
     .expect("post-open probe must skip missing-directory create");
+    assert!(!absent.exists());
 }
 
 #[tokio::test]
@@ -232,7 +234,7 @@ async fn probe_activation_fails_closed_when_usage_spool_directory_is_not_writabl
     // Keep .lock so exclusive lock still succeeds; only create_new for a boot
     // epoch (and the activation probe) must fail.
     let mut permissions = std::fs::metadata(&spool_dir).unwrap().permissions();
-    permissions.set_mode(0o555);
+    permissions.set_mode(0o500);
     std::fs::set_permissions(&spool_dir, permissions).unwrap();
 
     let error = super::persistence::probe_activation(
@@ -255,7 +257,7 @@ async fn probe_activation_fails_closed_when_usage_spool_directory_is_not_writabl
 
     // Restore writability so TempDir cleanup succeeds.
     let mut permissions = std::fs::metadata(&spool_dir).unwrap().permissions();
-    permissions.set_mode(0o755);
+    permissions.set_mode(0o700);
     std::fs::set_permissions(&spool_dir, permissions).unwrap();
 }
 

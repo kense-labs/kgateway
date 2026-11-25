@@ -1,6 +1,7 @@
 //! Cloud-managed inference policy configuration.
 
 mod validation;
+pub(crate) use validation::validate_argon2id_verifier;
 
 #[cfg(test)]
 mod tests;

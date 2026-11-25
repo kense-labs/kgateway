@@ -18,7 +18,7 @@ fn main() {
         (Some(sha), Some(_)) if full_lower_sha(&sha) => format!("{sha}-dirty"),
         _ => "unknown".to_string(),
     };
-    println!("cargo:rustc-env=A3S_GATEWAY_GIT_SHA={embedded}");
+    println!("cargo:rustc-env=KGATEWAY_GIT_SHA={embedded}");
 }
 
 fn command_stdout(args: &[&str]) -> Option<String> {

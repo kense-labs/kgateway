@@ -137,12 +137,20 @@ impl UdpProxy {
     }
 
     /// Return the upstream currently pinned to a client session.
-    pub(crate) fn session_upstream(&self, client_addr: SocketAddr) -> Option<String> {
+    pub(crate) fn session_upstream(&self, client_addr: SocketAddr) -> Option<(String, bool)> {
         self.sessions
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get(&client_addr)
-            .map(|session| session.upstream_addr.clone())
+            .map(|session| {
+                (
+                    session.upstream_addr.clone(),
+                    session
+                        ._connection
+                        .as_ref()
+                        .is_some_and(BackendConnectionGuard::holds_managed_target),
+                )
+            })
     }
 
     /// Remove one client session and stop its response relay.

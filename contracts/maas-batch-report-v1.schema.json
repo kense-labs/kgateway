@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kgateway:maas-batch-report:v1",
+  "title": "kstack MaaS batch checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "report_id", "batch_id", "revision", "observed_at", "request_id", "reservation_id", "trace_id", "tenant", "project", "env", "status", "total", "completed", "failed"],
+  "properties": {
+    "schema": {"const": "kgateway.maas-batch-report.v1"},
+    "report_id": {"type": "string", "format": "uuid"},
+    "batch_id": {"type": "string", "pattern": "^batch_[0-9a-f]{24}$"},
+    "revision": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "request_id": {"type": "string", "format": "uuid"},
+    "reservation_id": {"type": "string", "format": "uuid"},
+    "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "tenant": {"$ref": "#/$defs/identifier"},
+    "project": {"$ref": "#/$defs/identifier"},
+    "env": {"$ref": "#/$defs/identifier"},
+    "status": {"enum": ["validating", "in_progress", "cancelling", "finalizing", "completed", "failed", "cancelled", "expired"]},
+    "total": {"type": "integer", "minimum": 1, "maximum": 50000},
+    "completed": {"$ref": "#/$defs/count"},
+    "failed": {"$ref": "#/$defs/count"},
+    "attempts": {"$ref": "#/$defs/count"}
+  },
+  "if": {"properties": {"status": {"enum": ["completed", "failed", "cancelled", "expired"]}}},
+  "then": {"required": ["attempts"]},
+  "else": {"not": {"required": ["attempts"]}},
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+    "count": {"type": "integer", "minimum": 0, "maximum": 50000}
+  }
+}

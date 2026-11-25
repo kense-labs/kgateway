@@ -99,7 +99,7 @@ def format_duration(nanoseconds: float) -> str:
 
 def write_markdown(path: Path, payload: dict[str, object]) -> None:
     lines = [
-        "## A3S Gateway Criterion baseline",
+        "## kgateway Criterion baseline",
         "",
         f"Commit: `{payload['commit']}`",
         "",

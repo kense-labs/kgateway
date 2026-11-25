@@ -65,6 +65,7 @@ $Filters = @(
   "validate_activation_probes_reachable_forward_auth",
   "validate_activation_probes_service_tls_ca_grpc_clients",
   "validate_activation_probes_service_tls_ca_http_clients",
+  "validate_activation_probes_service_tls_ca_websocket_clients",
   "validate_activation_skips_redis_probe_when_fail_open",
   "probe_activation_rejects_unreachable_redis",
   "rate_limit_redis_unreachable_returns_503_on_listener_without_upstream_contact",

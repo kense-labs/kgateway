@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kgateway:a2a-delegation:v1",
+  "title": "Single-use Kense A2A delegation ticket claims",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "iss", "iat", "exp", "chain_deadline", "jti", "parent_request_id", "aud", "sub", "generation", "tenant", "project", "env", "org", "trace_id", "method", "path", "operation", "action", "urn", "chain", "remaining"],
+  "properties": {
+    "v": {"const": 1},
+    "iss": {"const": "urn:plat:identity:delegation"},
+    "iat": {"type": "integer", "minimum": 0},
+    "exp": {"type": "integer", "minimum": 1},
+    "chain_deadline": {"type": "integer", "minimum": 1},
+    "jti": {"type": "string", "format": "uuid"},
+    "parent_request_id": {"type": "string", "format": "uuid"},
+    "aud": {"$ref": "#/$defs/identifier"},
+    "sub": {"$ref": "#/$defs/identifier"},
+    "generation": {"type": "integer", "minimum": 1},
+    "tenant": {"$ref": "#/$defs/identifier"},
+    "project": {"$ref": "#/$defs/identifier"},
+    "env": {"$ref": "#/$defs/identifier"},
+    "org": {"$ref": "#/$defs/identifier"},
+    "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "method": {"const": "POST"},
+    "path": {"type": "string", "pattern": "^/[^?#\\s]*$", "maxLength": 256},
+    "operation": {"$ref": "#/$defs/identifier"},
+    "action": {"$ref": "#/$defs/action"},
+    "urn": {"$ref": "#/$defs/urn"},
+    "chain": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+    "remaining": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/target"}}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+    "action": {"type": "string", "pattern": "^[A-Za-z0-9._:/-]{1,64}$"},
+    "urn": {"type": "string", "pattern": "^urn:plat:[A-Za-z0-9._:-]{1,247}$"},
+    "target": {
+      "type": "object", "additionalProperties": false, "required": ["operation", "action", "urn"],
+      "properties": {
+        "operation": {"$ref": "#/$defs/identifier"},
+        "action": {"$ref": "#/$defs/action"},
+        "urn": {"$ref": "#/$defs/urn"}
+      }
+    }
+  }
+}

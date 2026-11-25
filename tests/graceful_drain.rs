@@ -1,11 +1,11 @@
 //! End-to-end graceful-drain and forced-cancellation evidence.
 
-use a3s_gateway::config::{
+use futures_util::StreamExt;
+use kgateway::config::{
     EntrypointConfig, GatewayConfig, LoadBalancerConfig, Protocol, RouterConfig, ServerConfig,
     ServiceConfig, Strategy,
 };
-use a3s_gateway::{Gateway, GatewayState};
-use futures_util::StreamExt;
+use kgateway::{Gateway, GatewayState};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -75,6 +75,7 @@ fn gateway_config(
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: Vec::new(),
@@ -88,6 +89,7 @@ fn gateway_config(
         mode: Default::default(),
         managed: Default::default(),
         inference: None,
+        platform_policy: None,
         entrypoints,
         routers,
         services,

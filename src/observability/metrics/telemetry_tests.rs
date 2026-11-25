@@ -24,6 +24,7 @@ fn service(url: &str) -> ServiceConfig {
             health_check: None,
             sticky: None,
             tls_ca_file: None,
+            tls_client_identity_file: None,
         },
         scaling: None,
         revisions: Vec::new(),

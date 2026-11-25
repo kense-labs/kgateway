@@ -21,7 +21,7 @@ from fake_backend import FakeOpenAIBackend
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 TEST_API_KEY = "a3s_inf_abc12345" + ("a" * 64)
-TEST_ADMIN_TOKEN = "a3s-gateway-openai-sdk-conformance"
+TEST_ADMIN_TOKEN = "kgateway-openai-sdk-conformance"
 
 GATEWAY_ID = "11111111-1111-4111-8111-111111111111"
 ENVIRONMENT_ID = "22222222-2222-4222-8222-222222222222"
@@ -65,25 +65,25 @@ class GatewayHarness:
         snapshot_acl = self._snapshot_acl(expires_at_text)
 
         self._temporary_directory = tempfile.TemporaryDirectory(
-            prefix="a3s-gateway-openai-sdk-"
+            prefix="kgateway-openai-sdk-"
         )
         config_path = Path(self._temporary_directory.name) / "gateway.acl"
         config_path.write_text(bootstrap_acl, encoding="utf-8")
 
-        binary_name = "a3s-gateway.exe" if os.name == "nt" else "a3s-gateway"
+        binary_name = "kgateway.exe" if os.name == "nt" else "kgateway"
         binary = Path(
             os.environ.get(
-                "A3S_GATEWAY_BINARY",
+                "KGATEWAY_BINARY",
                 REPOSITORY_ROOT / "target" / "debug" / binary_name,
             )
         )
         if not binary.is_file():
             raise RuntimeError(
-                f"Gateway binary not found at {binary}; run cargo build --bin a3s-gateway"
+                f"Gateway binary not found at {binary}; run cargo build --bin kgateway"
             )
 
         environment = os.environ.copy()
-        environment["A3S_GATEWAY_CONFORMANCE_ADMIN_TOKEN"] = TEST_ADMIN_TOKEN
+        environment["KGATEWAY_CONFORMANCE_ADMIN_TOKEN"] = TEST_ADMIN_TOKEN
         process_options: dict[str, int] = {}
         if os.name == "nt":
             process_options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -245,7 +245,7 @@ management {{
   enabled = true
   address = "127.0.0.1:{self.management_port}"
   path_prefix = "/api/gateway"
-  auth_token_env = "A3S_GATEWAY_CONFORMANCE_ADMIN_TOKEN"
+  auth_token_env = "KGATEWAY_CONFORMANCE_ADMIN_TOKEN"
   allowed_ips = ["127.0.0.1"]
 }}
 

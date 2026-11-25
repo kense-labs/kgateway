@@ -1,5 +1,5 @@
 #![allow(clippy::items_after_test_module)]
-//! # A3S Gateway
+//! # kgateway
 //!
 //! An AI Native Traffic Layer for standalone and A3S Cloud-managed deployments.
 //!
@@ -23,10 +23,10 @@
 //! ## Quick Start
 //!
 //! ```rust,ignore
-//! use a3s_gateway::{Gateway, config::GatewayConfig};
+//! use kgateway::{Gateway, config::GatewayConfig};
 //!
 //! #[tokio::main]
-//! async fn main() -> a3s_gateway::Result<()> {
+//! async fn main() -> kgateway::Result<()> {
 //!     let config = GatewayConfig::from_file("gateway.acl").await?;
 //!     let gateway = Gateway::new(config)?;
 //!     gateway.start().await?;
@@ -46,6 +46,8 @@ pub mod managed_snapshot;
 pub mod middleware;
 mod node_api;
 pub(crate) mod observability;
+pub mod platform;
+pub mod platform_identity;
 pub mod provider;
 pub(crate) mod proxy;
 pub(crate) mod response_body;

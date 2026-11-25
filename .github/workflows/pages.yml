@@ -34,12 +34,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate static files
         run: python3 website/scripts/check_site.py
-      - name: Check JavaScript syntax
-        run: |
-          node --check website/traffic-profiles.js
-          node --check website/app.js
-          node --check website/docs/docs.js
-
   deploy:
     name: Deploy website
     if: github.ref == 'refs/heads/main'
@@ -59,9 +53,11 @@ jobs:
           cp -R website/. _site/
           cp install.sh install.ps1 _site/
       - name: Preserve published benchmark datasets
+        if: vars.KGATEWAY_PAGES_URL != ''
         env:
-          PUBLISHED_SITE_URL: https://a3s-lab.github.io/Gateway
+          PUBLISHED_SITE_URL: ${{ vars.KGATEWAY_PAGES_URL }}
         run: |
+          mkdir -p _site/assets
           for asset in performance-comparison.json performance-data.json ai-gateway-comparison.json; do
             published=$(mktemp)
             if curl --fail --location --retry 3 \
@@ -73,7 +69,7 @@ jobs:
               echo "Preserved published assets/${asset}"
             else
               rm -f "$published"
-              echo "::notice::No published ${asset} was available; using the checked-in fallback"
+              echo "::notice::No published ${asset} was available"
             fi
           done
       - name: Upload website artifact

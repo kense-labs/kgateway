@@ -4,15 +4,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-BIN="${1:-./target/debug/a3s-gateway}"
+BIN="${1:-./target/debug/kgateway}"
 if [[ ! -x "$BIN" && ! -f "$BIN" ]]; then
-  echo "building a3s-gateway..."
-  cargo build --bin a3s-gateway
-  BIN=./target/debug/a3s-gateway
+  echo "building kgateway..."
+  cargo build --bin kgateway
+  BIN=./target/debug/kgateway
 fi
 
-DUR="${A3S_GATEWAY_SOAK_DURATION:-120}"
-C="${A3S_GATEWAY_SOAK_CONCURRENCY:-8}"
+DUR="${KGATEWAY_SOAK_DURATION:-120}"
+C="${KGATEWAY_SOAK_CONCURRENCY:-8}"
 
 for profile in http-json sse-finite openai-json openai-sse; do
   python3 scripts/soak-gateway.py \

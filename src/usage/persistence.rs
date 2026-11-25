@@ -1,7 +1,7 @@
 use super::{
     EpochDescriptor, EpochPhase, ManifestSequence, SegmentHeader, SpoolManifest, UsageCursor,
-    UsageSpoolError, UsageSpoolOptions, MANIFEST_SCHEMA, MANIFEST_SCHEMA_V1, MANIFEST_SCHEMA_V2,
-    MAX_MANIFEST_BYTES, SEGMENT_SCHEMA,
+    UsageSpoolError, UsageSpoolOptions, LEGACY_MANIFEST_V3, MANIFEST_SCHEMA, MANIFEST_SCHEMA_V1,
+    MANIFEST_SCHEMA_V2, MAX_MANIFEST_BYTES, SEGMENT_SCHEMA,
 };
 use fs2::FileExt;
 use std::collections::HashMap;
@@ -907,6 +907,7 @@ async fn load_or_create_manifest(
 
 fn validate_manifest(manifest: &SpoolManifest, gateway_id: Uuid) -> Result<(), UsageSpoolError> {
     if manifest.schema != MANIFEST_SCHEMA
+        && manifest.schema != LEGACY_MANIFEST_V3
         && manifest.schema != MANIFEST_SCHEMA_V2
         && manifest.schema != MANIFEST_SCHEMA_V1
     {

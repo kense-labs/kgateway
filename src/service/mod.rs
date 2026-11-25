@@ -167,25 +167,20 @@ impl ServiceRegistry {
                     name
                 ))
             })?;
-            let checker = match config.load_balancer.tls_ca_file.as_deref() {
-                Some(ca_file) => HealthChecker::try_new_with_ca(
-                    load_balancer.clone(),
-                    health.path.clone(),
-                    interval,
-                    timeout,
-                    health.unhealthy_threshold,
-                    health.healthy_threshold,
-                    Some(ca_file),
-                ),
-                None => HealthChecker::try_new(
-                    load_balancer.clone(),
-                    health.path.clone(),
-                    interval,
-                    timeout,
-                    health.unhealthy_threshold,
-                    health.healthy_threshold,
-                ),
-            }
+            let tls_files = config
+                .load_balancer
+                .tls_ca_file
+                .as_deref()
+                .map(|ca| (ca, config.load_balancer.tls_client_identity_file.as_deref()));
+            let checker = HealthChecker::try_new(
+                load_balancer.clone(),
+                health.path.clone(),
+                interval,
+                timeout,
+                health.unhealthy_threshold,
+                health.healthy_threshold,
+                tls_files,
+            )
             .map_err(|error| {
                 GatewayError::Other(format!(
                     "Failed to prepare health_check for service '{}': {}",
@@ -201,25 +196,15 @@ impl ServiceRegistry {
             // static traffic splitting.
             if let Some(router) = revision_routers.and_then(|routers| routers.get(name)) {
                 for revision in router.revisions() {
-                    let checker = match config.load_balancer.tls_ca_file.as_deref() {
-                        Some(ca_file) => HealthChecker::try_new_with_ca(
-                            revision.load_balancer().clone(),
-                            health.path.clone(),
-                            interval,
-                            timeout,
-                            health.unhealthy_threshold,
-                            health.healthy_threshold,
-                            Some(ca_file),
-                        ),
-                        None => HealthChecker::try_new(
-                            revision.load_balancer().clone(),
-                            health.path.clone(),
-                            interval,
-                            timeout,
-                            health.unhealthy_threshold,
-                            health.healthy_threshold,
-                        ),
-                    }
+                    let checker = HealthChecker::try_new(
+                        revision.load_balancer().clone(),
+                        health.path.clone(),
+                        interval,
+                        timeout,
+                        health.unhealthy_threshold,
+                        health.healthy_threshold,
+                        tls_files,
+                    )
                     .map_err(|error| {
                         GatewayError::Other(format!(
                             "Failed to prepare health_check for revision '{}': {}",
@@ -261,6 +246,7 @@ mod tests {
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: vec![],

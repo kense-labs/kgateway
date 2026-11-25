@@ -1,4 +1,4 @@
-# A3S Gateway - Justfile
+# kgateway - Justfile
 
 default:
     @just --list
@@ -32,7 +32,7 @@ test:
 
     echo ""
     echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-    echo -e "${BOLD}  A3S Gateway — Test Suite${RESET}"
+    echo -e "${BOLD}  kgateway — Test Suite${RESET}"
     echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo ""
 

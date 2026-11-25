@@ -10,7 +10,7 @@ fn crate_publication_is_source_bound_tested_and_idempotent() {
     assert!(workflow.contains("cargo publish --locked --dry-run"));
     assert!(workflow.contains("already exists; skipping upload"));
     assert!(workflow.contains("cargo publish --locked"));
-    assert!(workflow.contains("cargo info \"a3s-gateway@$VERSION\""));
+    assert!(workflow.contains("cargo info \"kgateway@$VERSION\""));
 
     for action in workflow.lines().filter_map(|line| {
         line.trim()
@@ -29,14 +29,20 @@ fn crate_publication_is_source_bound_tested_and_idempotent() {
 
 #[test]
 fn patch_release_metadata_is_synchronized() {
-    let manifest = include_str!("../Cargo.toml");
-    let chart = include_str!("../deploy/helm/a3s-gateway/Chart.yaml");
-    let changelog = include_str!("../CHANGELOG.md");
-    let roadmap = include_str!("../ROADMAP.md");
+    let chart = include_str!("../deploy/helm/kgateway/Chart.yaml");
+    let release: serde_json::Value = serde_json::from_str(include_str!("../release.json")).unwrap();
+    let version = env!("CARGO_PKG_VERSION");
 
-    assert!(manifest.contains("version = \"1.1.1\""));
-    assert!(chart.contains("version: 1.1.1"));
-    assert!(chart.contains("appVersion: \"1.1.1\""));
-    assert!(changelog.contains("## [1.1.1] - 2026-08-25"));
-    assert!(roadmap.contains("current `v1.1.1` release"));
+    assert_eq!(release["version"], version);
+    assert!(chart
+        .lines()
+        .any(|line| line == format!("version: {version}")));
+    assert!(chart
+        .lines()
+        .any(|line| line == format!("appVersion: \"{version}\"")));
+    let notes = release["notes"].as_array().unwrap();
+    assert!(!notes.is_empty());
+    assert!(notes
+        .iter()
+        .all(|note| note.as_str().is_some_and(|text| !text.trim().is_empty())));
 }

@@ -1,4 +1,4 @@
-//! ACL configuration parser for A3S Gateway.
+//! ACL configuration parser for kgateway.
 
 mod inference;
 
@@ -25,6 +25,7 @@ pub(crate) fn parse_gateway_config(content: &str) -> Result<GatewayConfig> {
         mode: OperatingMode::default(),
         managed: ManagedConfig::default(),
         inference: None,
+        platform_policy: None,
         entrypoints: HashMap::new(),
         routers: HashMap::new(),
         services: HashMap::new(),
@@ -49,6 +50,19 @@ pub(crate) fn parse_gateway_config(content: &str) -> Result<GatewayConfig> {
                     return Err(config_error("Duplicate top-level inference block"));
                 }
                 config.inference = Some(inference::parse_inference_block(block)?);
+            }
+            "platform_policy" => {
+                if config.platform_policy.is_some() {
+                    return Err(config_error("Duplicate platform_policy block"));
+                }
+                let json = required_string_attr(block, &["json"])?;
+                config.platform_policy = Some(serde_json::from_str(&json).map_err(|error| {
+                    config_error(format!(
+                        "Invalid platform_policy JSON at {}:{}",
+                        error.line(),
+                        error.column()
+                    ))
+                })?);
             }
             "entrypoint" | "entrypoints" => {
                 let name = label_or_string_attr(block, &["name"])?;
@@ -123,6 +137,23 @@ fn parse_managed_block(block: &Block) -> Result<ManagedConfig> {
         gateway_id,
         state_file,
         usage_spool,
+        platform: child(block, "platform")
+            .map(|platform| -> Result<crate::platform::PlatformBootstrap> {
+                Ok(crate::platform::PlatformBootstrap {
+                    signing_key_file: required_string_attr(platform, &["signing_key_file"])?.into(),
+                    budget_state_file: required_string_attr(platform, &["budget_state_file"])?
+                        .into(),
+                    mcp_session_key_file: string_attr(platform, &["mcp_session_key_file"])?
+                        .map(std::path::PathBuf::from),
+                    audit_receipt_endpoint: string_attr(platform, &["audit_receipt_endpoint"])?,
+                    delegation_verification_key_file: string_attr(
+                        platform,
+                        &["delegation_verification_key_file"],
+                    )?
+                    .map(std::path::PathBuf::from),
+                })
+            })
+            .transpose()?,
     })
 }
 
@@ -304,6 +335,7 @@ fn parse_service_block(block: &Block) -> Result<ServiceConfig> {
             health_check: None,
             sticky: None,
             tls_ca_file: None,
+            tls_client_identity_file: None,
         },
     };
 
@@ -382,6 +414,7 @@ fn parse_load_balancer_block(block: &Block) -> Result<LoadBalancerConfig> {
             .transpose()?,
         sticky: child(block, "sticky").map(parse_sticky_block).transpose()?,
         tls_ca_file: string_attr(block, &["tls_ca_file"])?,
+        tls_client_identity_file: string_attr(block, &["tls_client_identity_file"])?,
     })
 }
 
@@ -673,7 +706,7 @@ fn parse_management_block(block: &Block) -> Result<ManagementConfig> {
     let auth_token_env = match string_attr(block, &["auth_token_env"])? {
         Some(value) if value.is_empty() => None,
         Some(value) => Some(value),
-        None => Some("A3S_GATEWAY_ADMIN_TOKEN".to_string()),
+        None => Some("KGATEWAY_ADMIN_TOKEN".to_string()),
     };
 
     Ok(ManagementConfig {

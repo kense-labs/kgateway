@@ -3,7 +3,7 @@
 use super::persistence::{self, IndexedEvent, StoredRecord};
 use super::{
     EpochDescriptor, SegmentHeader, SpoolManifest, UsageCursor, UsageSpoolError,
-    LEGACY_SEGMENT_SCHEMA, MAX_RECORD_LINE_BYTES, SEGMENT_SCHEMA,
+    LEGACY_SEGMENT_SCHEMA, LEGACY_SEGMENT_V2, MAX_RECORD_LINE_BYTES, SEGMENT_SCHEMA,
 };
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
@@ -209,7 +209,7 @@ fn validate_header(
     gateway_id: Uuid,
 ) -> Result<(), UsageSpoolError> {
     let schema_matches = match header.schema.as_str() {
-        SEGMENT_SCHEMA => true,
+        SEGMENT_SCHEMA | LEGACY_SEGMENT_V2 => true,
         LEGACY_SEGMENT_SCHEMA => header.first_sequence == 1 && epoch.first_sequence.0 == 1,
         _ => false,
     };

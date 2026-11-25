@@ -9,6 +9,7 @@ fn state_fixture() -> NodeApiState {
         reload_managed_snapshot: None,
         managed_snapshots: Arc::new(ManagedSnapshotStore::new(None, None)),
         usage_spool: Arc::new(RwLock::new(None)),
+        platform_budget: None,
     }
 }
 
@@ -41,7 +42,7 @@ fn node_api_exposes_version() {
     let response = api.handle(&Method::GET, "/api/gateway/version", &state);
 
     assert_eq!(response.status, 200);
-    assert!(response.body.contains("a3s-gateway"));
+    assert!(response.body.contains("kgateway"));
 }
 
 #[test]
@@ -108,7 +109,7 @@ async fn node_api_health_exposes_the_durable_usage_spool() {
 fn version_info_identifies_the_machine_contract() {
     let version = VersionInfo::current();
 
-    assert_eq!(version.name, "a3s-gateway");
+    assert_eq!(version.name, "kgateway");
     assert!(!version.version.is_empty());
     assert_eq!(version.api_version, "v1");
 }

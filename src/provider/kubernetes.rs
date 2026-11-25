@@ -137,28 +137,28 @@ pub struct IngressServicePort {
 // -----------------------------------------------------------------------
 
 /// Comma-separated list of entrypoint names
-pub(crate) const ANN_ENTRYPOINTS: &str = "a3s-gateway.io/entrypoints";
+pub(crate) const ANN_ENTRYPOINTS: &str = "kgateway.io/entrypoints";
 
 /// Comma-separated list of middleware names
-pub(crate) const ANN_MIDDLEWARES: &str = "a3s-gateway.io/middlewares";
+pub(crate) const ANN_MIDDLEWARES: &str = "kgateway.io/middlewares";
 
 /// Load balancing strategy override
-pub(crate) const ANN_STRATEGY: &str = "a3s-gateway.io/strategy";
+pub(crate) const ANN_STRATEGY: &str = "kgateway.io/strategy";
 
 /// Router priority override
-pub(crate) const ANN_PRIORITY: &str = "a3s-gateway.io/priority";
+pub(crate) const ANN_PRIORITY: &str = "kgateway.io/priority";
 
 /// Annotation: protocol override (tcp, udp; default: http)
-pub(crate) const ANN_PROTOCOL: &str = "a3s-gateway.io/protocol";
+pub(crate) const ANN_PROTOCOL: &str = "kgateway.io/protocol";
 
 /// Annotation: listen address for TCP/UDP entrypoints
-pub(crate) const ANN_LISTEN: &str = "a3s-gateway.io/listen";
+pub(crate) const ANN_LISTEN: &str = "kgateway.io/listen";
 
 /// Annotation: per-route upstream request timeout (humantime, e.g. "600s").
 /// Default "30s". Lets long requests (OCI image-tar uploads, large git/pipeline
 /// bodies, long streams) exceed the 30s default on specific routes without
 /// loosening fail-fast everywhere.
-pub(crate) const ANN_REQUEST_TIMEOUT: &str = "a3s-gateway.io/request-timeout";
+pub(crate) const ANN_REQUEST_TIMEOUT: &str = "kgateway.io/request-timeout";
 
 // -----------------------------------------------------------------------
 // Conversion: Ingress → GatewayConfig
@@ -199,29 +199,28 @@ pub fn ingress_to_config(ingresses: &[IngressResource]) -> crate::error::Result<
     for ingress in ingresses {
         let ingress_entrypoints = parse_csv_annotation(&ingress.annotations, ANN_ENTRYPOINTS);
         let middlewares = parse_csv_annotation(&ingress.annotations, ANN_MIDDLEWARES);
-        let strategy =
-            parse_declared_strategy(ingress.annotations.get(ANN_STRATEGY).map(String::as_str))
-                .map_err(|error| {
-                    crate::error::GatewayError::Other(format!(
-                        "Ingress '{}/{}' annotation '{ANN_STRATEGY}': {error}",
-                        ingress.namespace, ingress.name
-                    ))
-                })?;
-        let priority =
-            parse_declared_priority(ingress.annotations.get(ANN_PRIORITY).map(String::as_str))
-                .map_err(|error| {
-                    crate::error::GatewayError::Other(format!(
-                        "Ingress '{}/{}' annotation '{ANN_PRIORITY}': {error}",
-                        ingress.namespace, ingress.name
-                    ))
-                })?;
+        let strategy = parse_declared_strategy(
+            annotation(&ingress.annotations, ANN_STRATEGY).map(String::as_str),
+        )
+        .map_err(|error| {
+            crate::error::GatewayError::Other(format!(
+                "Ingress '{}/{}' annotation '{ANN_STRATEGY}': {error}",
+                ingress.namespace, ingress.name
+            ))
+        })?;
+        let priority = parse_declared_priority(
+            annotation(&ingress.annotations, ANN_PRIORITY).map(String::as_str),
+        )
+        .map_err(|error| {
+            crate::error::GatewayError::Other(format!(
+                "Ingress '{}/{}' annotation '{ANN_PRIORITY}': {error}",
+                ingress.namespace, ingress.name
+            ))
+        })?;
         // Per-route upstream timeout override. Absent → 30s; present empty or
         // invalid must fail closed (do not silently re-default to 30s).
         let request_timeout = parse_declared_request_timeout(
-            ingress
-                .annotations
-                .get(ANN_REQUEST_TIMEOUT)
-                .map(String::as_str),
+            annotation(&ingress.annotations, ANN_REQUEST_TIMEOUT).map(String::as_str),
         )
         .map_err(|error| {
             crate::error::GatewayError::Other(format!(
@@ -231,12 +230,10 @@ pub fn ingress_to_config(ingresses: &[IngressResource]) -> crate::error::Result<
         })?;
 
         // Check for TCP/UDP protocol override
-        let protocol = ingress
-            .annotations
-            .get(ANN_PROTOCOL)
+        let protocol = annotation(&ingress.annotations, ANN_PROTOCOL)
             .map(|s| s.as_str())
             .unwrap_or("http");
-        let listen_addr = ingress.annotations.get(ANN_LISTEN);
+        let listen_addr = annotation(&ingress.annotations, ANN_LISTEN);
 
         for rule in &ingress.spec.rules {
             let http = match &rule.http {
@@ -291,6 +288,7 @@ pub fn ingress_to_config(ingresses: &[IngressResource]) -> crate::error::Result<
                             health_check: None,
                             sticky: None,
                             tls_ca_file: None,
+                            tls_client_identity_file: None,
                         },
                         scaling: None,
                         revisions: vec![],
@@ -373,6 +371,7 @@ pub fn ingress_to_config(ingresses: &[IngressResource]) -> crate::error::Result<
         mode: Default::default(),
         managed: Default::default(),
         inference: None,
+        platform_policy: None,
         entrypoints,
         routers,
         services,
@@ -408,13 +407,19 @@ pub(crate) fn build_rule_string(host: &str, path: &str, path_type: &str) -> Stri
     }
 }
 
+fn annotation<'a>(annotations: &'a HashMap<String, String>, key: &str) -> Option<&'a String> {
+    annotations.get(key).or_else(|| {
+        let suffix = key.strip_prefix("kgateway.io/")?;
+        annotations.get(&format!("a3s-gateway.io/{suffix}"))
+    })
+}
+
 /// Parse a comma-separated annotation value into a Vec<String>
 pub(crate) fn parse_csv_annotation(
     annotations: &HashMap<String, String>,
     key: &str,
 ) -> Vec<String> {
-    annotations
-        .get(key)
+    annotation(annotations, key)
         .map(|v| {
             v.split(',')
                 .map(|s| s.trim().to_string())

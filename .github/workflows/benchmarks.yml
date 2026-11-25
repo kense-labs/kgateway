@@ -61,7 +61,7 @@ jobs:
       - name: Build the shipped Gateway release profile
         run: |
           bash scripts/run-cargo-annotated.sh cargo build --locked --release \
-            --bin a3s-gateway \
+            --bin kgateway \
             --example protocol_benchmark_upstream \
             --example protocol_benchmark_load \
             --example ai_benchmark_upstream \
@@ -88,14 +88,14 @@ jobs:
           python3 -m json.tool website/assets/performance-comparison.json >/dev/null
           python3 website/scripts/check_site.py
           echo '## Same-host multi-protocol comparison' >> "$GITHUB_STEP_SUMMARY"
-          echo '| Traffic | A3S ops/s | NGINX ops/s | A3S/NGINX | P99 ratio | Alignment |' >> "$GITHUB_STEP_SUMMARY"
+          echo '| Traffic | kgateway ops/s | NGINX ops/s | kgateway/NGINX | P99 ratio | Alignment |' >> "$GITHUB_STEP_SUMMARY"
           echo '| --- | ---: | ---: | ---: | ---: | --- |' >> "$GITHUB_STEP_SUMMARY"
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
 
           data = json.load(open("website/assets/performance-comparison.json"))
           for profile in data["profiles"].values():
-              a3s = profile["proxies"]["a3s-gateway"]["median"]
+              a3s = profile["proxies"]["kgateway"]["median"]
               nginx = profile["proxies"]["nginx"]["median"]
               ratios = profile["comparison"]
               print(
@@ -124,14 +124,14 @@ jobs:
           python3 -m json.tool website/assets/ai-gateway-comparison.json >/dev/null
           python3 website/scripts/check_site.py
           echo '## AI token-streaming comparison' >> "$GITHUB_STEP_SUMMARY"
-          echo '| Profile | A3S TTFT P50 | NGINX TTFT P50 | TTFT ratio | ITL P99 ratio | Token goodput ratio |' >> "$GITHUB_STEP_SUMMARY"
+          echo '| Profile | kgateway TTFT P50 | NGINX TTFT P50 | TTFT ratio | ITL P99 ratio | Token goodput ratio |' >> "$GITHUB_STEP_SUMMARY"
           echo '| --- | ---: | ---: | ---: | ---: | ---: |' >> "$GITHUB_STEP_SUMMARY"
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
 
           data = json.load(open("website/assets/ai-gateway-comparison.json"))
           for profile in data["profiles"].values():
-              a3s = profile["products"]["a3s-gateway"]["median"]
+              a3s = profile["products"]["kgateway"]["median"]
               nginx = profile["products"]["nginx"]["median"]
               ratios = profile["comparison"]
               print(

@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:plat:contracts:gateway:platform-policy:v1",
+  "title": "Gateway platform policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "expires_at", "signer", "credentials", "routes", "leases"],
+  "properties": {
+    "schema": { "const": "kgateway.platform-policy.v1" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "signer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issuer", "key_id", "authorized_until"],
+      "properties": {
+        "issuer": { "$ref": "#/$defs/identifier" },
+        "key_id": { "$ref": "#/$defs/identifier" },
+        "authorized_until": { "type": "string", "format": "date-time" }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "propertyNames": { "pattern": "^kense_[A-Za-z0-9_:-]{1,122}$" },
+      "additionalProperties": { "$ref": "#/$defs/credential" }
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/route" }
+    },
+    "leases": { "type": "array", "items": { "$ref": "#/$defs/lease" } }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" },
+    "urn": { "type": "string", "pattern": "^urn:plat:[A-Za-z0-9._:-]{1,247}$" },
+    "credential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "generation", "tenant", "project", "env", "org", "verifier_hash", "expires_at", "grants"],
+      "properties": {
+        "subject": { "$ref": "#/$defs/identifier" },
+        "generation": { "type": "integer", "minimum": 1 },
+        "tenant": { "$ref": "#/$defs/identifier" },
+        "project": { "$ref": "#/$defs/identifier" },
+        "env": { "$ref": "#/$defs/identifier" },
+        "org": { "$ref": "#/$defs/identifier" },
+        "verifier_hash": { "type": "string", "pattern": "^\\$argon2id\\$v=19\\$" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "grants": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/urn" } }
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "operation", "audience", "resource"],
+      "properties": {
+        "method": { "enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] },
+        "path": { "type": "string", "pattern": "^/[^?#\\s]*$", "maxLength": 256 },
+        "operation": { "$ref": "#/$defs/identifier" },
+        "audience": { "$ref": "#/$defs/identifier" },
+        "tenant_targets": {
+          "description": "Sparse deployment overrides for the authenticated tenant and for aliases registered on the route.",
+          "type": "object", "minProperties": 1, "maxProperties": 64,
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "$ref": "#/$defs/targets", "minProperties": 1, "maxProperties": 64 }
+        },
+        "requires_audit_receipt": { "type": "boolean", "default": false },
+        "vault_provider": { "$ref": "#/$defs/identifier" },
+        "accept_delegation": { "type": "boolean", "default": false },
+        "delegate_to": {
+          "type": "array", "maxItems": 16, "uniqueItems": true,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["operation", "action", "urn"],
+            "properties": {
+              "operation": { "$ref": "#/$defs/identifier" },
+              "action": { "type": "string", "pattern": "^[A-Za-z0-9._:/-]{1,64}$" },
+              "urn": { "$ref": "#/$defs/urn" }
+            }
+          }
+        },
+        "resource": {
+          "oneOf": [
+            {
+              "type": "object", "additionalProperties": false, "required": ["kind", "urn"],
+              "properties": { "kind": { "const": "fixed" }, "urn": { "$ref": "#/$defs/urn" } }
+            },
+            {
+              "type": "object", "additionalProperties": false, "required": ["kind", "urn"],
+              "properties": {
+                "kind": { "const": "maas-asset" },
+                "urn": { "enum": ["urn:plat:maas:files", "urn:plat:maas:batches"] },
+                "batch_max_requests": { "type": "integer", "minimum": 1, "maximum": 50000 },
+                "targets": { "$ref": "#/$defs/targets", "maxProperties": 32 }
+              },
+              "dependentRequired": { "batch_max_requests": ["targets"], "targets": ["batch_max_requests"] }
+            },
+            {
+              "type": "object", "additionalProperties": false, "required": ["kind", "targets"],
+              "properties": { "kind": { "const": "model" }, "targets": { "$ref": "#/$defs/targets" } }
+            },
+            {
+              "type": "object", "additionalProperties": false, "required": ["kind", "urn", "targets"],
+              "properties": { "kind": { "const": "model-list" }, "urn": { "const": "urn:plat:maas:models" }, "targets": { "$ref": "#/$defs/targets" } }
+            },
+            {
+              "type": "object", "additionalProperties": false, "required": ["kind", "policy"],
+              "properties": { "kind": { "const": "rpc" }, "policy": { "$ref": "#/$defs/rpc" } }
+            },
+            {
+              "type": "object", "additionalProperties": false, "required": ["kind", "urn"],
+              "properties": {
+                "kind": { "const": "mcp-session" },
+                "urn": { "$ref": "#/$defs/urn" },
+                "origins": { "$ref": "#/$defs/rpc/properties/origins" }
+              }
+            }
+          ]
+        }
+      },
+      "if": { "required": ["tenant_targets"] },
+      "then": {
+        "properties": {
+          "audience": { "const": "urn:plat:maas:kstack" },
+          "resource": { "properties": { "kind": { "enum": ["model", "model-list", "maas-asset"] } } }
+        },
+        "if": { "properties": { "resource": { "properties": { "kind": { "const": "maas-asset" } } } } },
+        "then": { "properties": { "operation": { "const": "maas.batches.create" } } }
+      }
+    },
+    "rpc": {
+      "type": "object", "additionalProperties": false, "required": ["protocol", "methods"],
+      "properties": {
+        "protocol": { "enum": ["mcp", "a2a"] },
+        "task_public_key": { "type": "string", "maxLength": 4096 },
+        "methods": {
+          "type": "object", "minProperties": 1, "maxProperties": 16,
+          "additionalProperties": { "$ref": "#/$defs/urn" }
+        },
+        "tools": {
+          "type": "object", "maxProperties": 256,
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false, "required": ["urn", "description", "inputSchema"],
+            "properties": {
+              "urn": { "$ref": "#/$defs/urn" },
+              "description": { "type": "string", "maxLength": 4096 },
+              "inputSchema": { "type": "object", "required": ["type"], "properties": { "type": { "const": "object" } } }
+            }
+          }
+        },
+        "origins": {
+          "type": "array", "maxItems": 32, "uniqueItems": true,
+          "items": { "type": "string", "format": "uri", "pattern": "^https://" }
+        }
+      }
+    },
+    "targets": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z0-9._:-]{1,128}$" },
+      "additionalProperties": {
+        "type": "array", "minItems": 1,
+        "items": {
+          "type": "object", "additionalProperties": false, "required": ["deployment", "weight"],
+          "properties": {
+            "deployment": {
+              "type": "object", "additionalProperties": false, "required": ["id", "version"],
+              "properties": {
+                "id": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+                "version": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+              }
+            },
+            "weight": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        }
+      }
+    },
+    "lease": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "gateway_id", "tenant", "operation", "expires_at", "requests"],
+      "dependentRequired": { "env": ["project"], "project": ["starts_at"] },
+      "if": { "not": { "required": ["project"] } },
+      "then": { "properties": { "requests": { "minimum": 1 } } },
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "gateway_id": { "type": "string", "format": "uuid" },
+        "tenant": { "$ref": "#/$defs/identifier" },
+        "operation": { "$ref": "#/$defs/identifier" },
+        "project": { "$ref": "#/$defs/identifier" },
+        "env": { "$ref": "#/$defs/identifier" },
+        "starts_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "requests": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -176,6 +176,7 @@ impl InferenceGrantAdmissionGuard {
 }
 
 impl Drop for InferenceGrantAdmissionGuard {
+    #[allow(deprecated, reason = "fetch_update supports the Rust 1.88 minimum")]
     fn drop(&mut self) {
         let result =
             self.state

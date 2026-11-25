@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kgateway:a2a-task-receipt:v1",
+  "title": "Claims of an A2A task receipt signed by the registered agent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["audience", "tenant", "project", "env", "subject", "task", "exp"],
+  "properties": {
+    "audience": { "$ref": "#/$defs/id" },
+    "tenant": { "$ref": "#/$defs/id" },
+    "project": { "$ref": "#/$defs/id" },
+    "env": { "$ref": "#/$defs/id" },
+    "subject": { "$ref": "#/$defs/id" },
+    "task": { "$ref": "#/$defs/id" },
+    "context": { "$ref": "#/$defs/id" },
+    "exp": { "type": "integer", "minimum": 1 }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" }
+  }
+}

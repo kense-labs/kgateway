@@ -29,7 +29,7 @@ use std::pin::Pin;
 /// # Example YAML
 ///
 /// ```yaml
-/// apiVersion: a3s-gateway.io/v1alpha1
+/// apiVersion: kgateway.io/v1alpha1
 /// kind: IngressRoute
 /// metadata:
 ///   name: my-app
@@ -124,7 +124,7 @@ fn default_weight() -> u32 {
 
 /// Parse one labeled IngressRoute ConfigMap `data.spec` JSON payload.
 ///
-/// Labeled ConfigMaps (`a3s-gateway.io/type=ingressroute`) must carry a
+/// Labeled ConfigMaps (`kgateway.io/type=ingressroute`) must carry a
 /// parseable `spec`; warn-and-skip would soft-open a Running provider with a
 /// silently incomplete route overlay while `validate_activation` still passed.
 pub(crate) fn parse_ingress_route_configmap_spec(
@@ -241,6 +241,7 @@ pub fn ingress_routes_to_config(
                         health_check: None,
                         sticky: None,
                         tls_ca_file: None,
+                        tls_client_identity_file: None,
                     },
                     scaling: None,
                     revisions: vec![],
@@ -256,6 +257,7 @@ pub fn ingress_routes_to_config(
         mode: Default::default(),
         managed: Default::default(),
         inference: None,
+        platform_policy: None,
         entrypoints: HashMap::new(),
         routers,
         services,
@@ -428,20 +430,28 @@ async fn poll_ingress_routes(
     use k8s_openapi::api::core::v1::ConfigMap;
     use kube::api::{Api, ListParams};
 
-    // Look for ConfigMaps with label "a3s-gateway.io/type=ingressroute"
     let api: Api<ConfigMap> = if config.namespace.is_empty() {
         Api::all(client.clone())
     } else {
         Api::namespaced(client.clone(), &config.namespace)
     };
 
-    let lp = ListParams::default().labels("a3s-gateway.io/type=ingressroute");
-    let list = api.list(&lp).await.map_err(|e| {
-        crate::error::GatewayError::Other(format!("Failed to list IngressRoute ConfigMaps: {}", e))
-    })?;
+    let current_selector = ListParams::default().labels("kgateway.io/type=ingressroute");
+    let legacy_selector = ListParams::default().labels("a3s-gateway.io/type=ingressroute");
+    let (current, legacy) =
+        tokio::try_join!(api.list(&current_selector), api.list(&legacy_selector)).map_err(|e| {
+            crate::error::GatewayError::Other(format!(
+                "Failed to list IngressRoute ConfigMaps: {}",
+                e
+            ))
+        })?;
 
     let mut result = Vec::new();
-    for cm in list.items {
+    let mut seen = std::collections::HashSet::new();
+    for cm in current.items.into_iter().chain(legacy.items) {
+        if !seen.insert((cm.metadata.namespace.clone(), cm.metadata.name.clone())) {
+            continue;
+        }
         let name = cm.metadata.name.as_deref().unwrap_or("unknown");
         result.push(ingress_route_from_configmap_data(name, cm.data.as_ref())?);
     }

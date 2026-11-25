@@ -2,9 +2,12 @@
 //! in-flight work on the retired generation while new requests move to the
 //! successor. This is Gateway-local; multi-replica joint gates remain open.
 
-use a3s_gateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
-use a3s_gateway::{config::GatewayConfig, Gateway};
+#[path = "support/node_auth.rs"]
+mod node_auth;
+
 use chrono::{Duration, Utc};
+use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+use kgateway::{config::GatewayConfig, Gateway};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
@@ -26,6 +29,7 @@ async fn start_bootstrap_gateway(gateway_id: Uuid) -> (Arc<Gateway>, u16, u16) {
     let mut last_bind_error = None;
     for _ in 0..10 {
         let (traffic_port, management_port) = free_tcp_ports().await;
+        node_auth::configure_in_process();
         let gateway = Arc::new(
             Gateway::new(
                 GatewayConfig::from_acl(&bootstrap_acl(gateway_id, traffic_port, management_port))
@@ -61,7 +65,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -108,7 +112,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -141,6 +145,7 @@ async fn apply(
         .post(format!(
             "http://127.0.0.1:{management_port}/api/gateway/snapshots/apply"
         ))
+        .bearer_auth(node_auth::TOKEN)
         .json(snapshot)
         .send()
         .await
@@ -724,7 +729,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -771,7 +776,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -782,6 +787,7 @@ async fn start_bootstrap_tcp_gateway(gateway_id: Uuid) -> (Arc<Gateway>, u16, u1
     let mut last_bind_error = None;
     for _ in 0..10 {
         let (traffic_port, management_port) = free_tcp_ports().await;
+        node_auth::configure_in_process();
         let gateway = Arc::new(
             Gateway::new(
                 GatewayConfig::from_acl(&bootstrap_tcp_acl(
@@ -950,7 +956,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -999,7 +1005,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_NODE_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 "#
@@ -1010,6 +1016,7 @@ async fn start_bootstrap_udp_gateway(gateway_id: Uuid) -> (Arc<Gateway>, u16, u1
     let mut last_bind_error = None;
     for _ in 0..10 {
         let (traffic_port, management_port) = free_tcp_ports().await;
+        node_auth::configure_in_process();
         let gateway = Arc::new(
             Gateway::new(
                 GatewayConfig::from_acl(&bootstrap_udp_acl(

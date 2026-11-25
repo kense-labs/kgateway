@@ -243,7 +243,7 @@ def main() -> int:
 
     for spec in PROFILE_SPECS:
         proxies: dict[str, dict[str, object]] = {}
-        for proxy in ("a3s-gateway", "nginx"):
+        for proxy in ("kgateway", "nginx"):
             paths = [
                 args.input / f"{spec['id']}-{proxy}-{index}.json"
                 for index in range(1, args.trials + 1)
@@ -254,7 +254,7 @@ def main() -> int:
             trials, medians = median_metrics(paths, str(spec["generator"]))
             proxies[proxy] = {"trials": trials, "median": medians}
 
-        a3s = proxies["a3s-gateway"]["median"]
+        a3s = proxies["kgateway"]["median"]
         nginx = proxies["nginx"]["median"]
         assert isinstance(a3s, dict) and isinstance(nginx, dict)
         profiles[str(spec["id"])] = {
@@ -295,11 +295,11 @@ def main() -> int:
             "kernel": args.kernel,
         },
         "versions": {
-            "a3s_gateway": args.a3s_version,
+            "kgateway": args.a3s_version,
             "nginx": args.nginx_version,
             "load_generators": {
                 "oha": args.oha_version,
-                "protocol_load": f"a3s-gateway {args.commit[:8]}",
+                "protocol_load": f"kgateway {args.commit[:8]}",
             },
         },
         "methodology": {
@@ -346,7 +346,7 @@ def main() -> int:
 
     summary = {
         profile_id: {
-            "a3s": profile["proxies"]["a3s-gateway"]["median"],
+            "a3s": profile["proxies"]["kgateway"]["median"],
             "nginx": profile["proxies"]["nginx"]["median"],
             "ratios": profile["comparison"],
         }

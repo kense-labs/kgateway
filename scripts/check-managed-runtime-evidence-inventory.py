@@ -15,6 +15,7 @@ Parity with the fault-suite inventory:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -23,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEST_RS = ROOT / "tests" / "managed_runtime_real_process.rs"
 SUITE_SH = ROOT / "scripts" / "run-managed-runtime-evidence.sh"
 SUITE_PS1 = ROOT / "scripts" / "run-managed-runtime-evidence.ps1"
-DOCS = ROOT / "docs" / "ops" / "fault-injection.md"
+DOCS = ROOT / "release.json"
 
 TEST_FN_RE = re.compile(r"fn\s+(real_os_process_upstream_\w+)\s*\(")
 DOC_CLAIM_RE = re.compile(r"`(real_os_process_upstream_[a-z0-9_]+)`")
@@ -35,6 +36,8 @@ def discover_real_os_process_tests(path: Path) -> set[str]:
 
 
 def discover_doc_claims(docs: Path) -> set[str]:
+    if docs.suffix == ".json":
+        return set(json.loads(docs.read_text(encoding="utf-8"))["evidence"]["managed_processes"])
     return set(DOC_CLAIM_RE.findall(docs.read_text(encoding="utf-8")))
 
 
@@ -127,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         test_rs=root / "tests" / "managed_runtime_real_process.rs",
         suite_sh=root / "scripts" / "run-managed-runtime-evidence.sh",
         suite_ps1=root / "scripts" / "run-managed-runtime-evidence.ps1",
-        docs=root / "docs" / "ops" / "fault-injection.md",
+        docs=root / "release.json",
     )
     if errors:
         print("managed-runtime evidence inventory check FAILED:", file=sys.stderr)
@@ -139,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(
         f"OK: {len(tests)} real_os_process_upstream_* cases are listed in both "
-        "managed-runtime evidence runners and docs/ops/fault-injection.md "
+        "managed-runtime evidence runners and release.json "
         "(FILTER membership + sh==ps1)"
     )
     return 0

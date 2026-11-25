@@ -45,6 +45,7 @@ filter-set mismatch). Managed Runtime
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -53,7 +54,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 SUITE_SH = ROOT / "scripts" / "run-fault-injection-suite.sh"
 SUITE_PS1 = ROOT / "scripts" / "run-fault-injection-suite.ps1"
-FAULT_DOCS = ROOT / "docs" / "ops" / "fault-injection.md"
+FAULT_DOCS = ROOT / "release.json"
 
 # Default Suite cargo features. Downgrading off `wire` (or kube/redis)
 # soft-opens curated fail_closed filters that need those feature gates.
@@ -277,6 +278,8 @@ def discover_fail_closed_tests(src: Path) -> set[str]:
 
 
 def discover_doc_suite_claims(docs: Path) -> set[str]:
+    if docs.suffix == ".json":
+        return set(json.loads(docs.read_text(encoding="utf-8"))["evidence"]["fault_suite"])
     """Full test names claimed as Suite Automated evidence in fault-injection.md."""
     text = docs.read_text(encoding="utf-8")
     return {
@@ -366,7 +369,11 @@ def check_inventory(
         # Docs must keep claiming the required Suite feature set so operators
         # cannot be told a weaker default while runners stay kube,redis,wire.
         required_csv = ",".join(sorted(REQUIRED_SUITE_FEATURES))
-        if f"--features {required_csv}" not in docs_text and required_csv not in docs_text:
+        features_match = (
+            set(json.loads(docs_text)["evidence"]["fault_features"]) == REQUIRED_SUITE_FEATURES
+            if fault_docs.suffix == ".json" else required_csv in docs_text
+        )
+        if not features_match:
             errors.append(
                 f"{fault_docs.name} must claim Suite features {required_csv} "
                 "(docs cannot soft-open a weaker default than the runners)"
@@ -454,7 +461,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     root: Path = args.root
-    fault_docs = root / "docs" / "ops" / "fault-injection.md"
+    fault_docs = root / "release.json"
+    if not fault_docs.is_file():
+        parser.error("release.json is required")
     errors = check_inventory(
         src=root / "src",
         suite_sh=root / "scripts" / "run-fault-injection-suite.sh",
@@ -484,7 +493,7 @@ def main(argv: list[str] | None = None) -> int:
         f"OK: {len(tests)} auto-discovered fail-closed probes plus "
         f"{len(REQUIRED_CURATED)} required curated cases "
         f"({unique} unique) are listed in both fault-injection suite runners; "
-        f"{len(claims)} fault-injection.md Suite claims are curated; "
+        f"{len(claims)} release evidence entries are curated; "
         f"{len(suite_filters)} suite filters are inventory-protected; "
         f"suite features={feature_csv}"
     )

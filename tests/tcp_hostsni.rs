@@ -1,11 +1,11 @@
 //! Real-listener evidence: TCP entrypoints route by ClientHello SNI via
 //! pure `HostSNI(...)` rules compiled into `TcpRouterTable`.
 
-use a3s_gateway::config::{
+use kgateway::config::{
     EntrypointConfig, GatewayConfig, LoadBalancerConfig, Protocol, RouterConfig, ServerConfig,
     ServiceConfig, Strategy,
 };
-use a3s_gateway::Gateway;
+use kgateway::Gateway;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -156,6 +156,7 @@ fn hostsni_gateway_config(
                     health_check: None,
                     sticky: None,
                     tls_ca_file: None,
+                    tls_client_identity_file: None,
                 },
                 scaling: None,
                 revisions: Vec::new(),
@@ -170,6 +171,7 @@ fn hostsni_gateway_config(
         mode: Default::default(),
         managed: Default::default(),
         inference: None,
+        platform_policy: None,
         entrypoints,
         routers,
         services,
@@ -325,6 +327,7 @@ fn pathprefix_tcp_gateway_config(
                 health_check: None,
                 sticky: None,
                 tls_ca_file: None,
+                tls_client_identity_file: None,
             },
             scaling: None,
             revisions: Vec::new(),
@@ -338,6 +341,7 @@ fn pathprefix_tcp_gateway_config(
         mode: Default::default(),
         managed: Default::default(),
         inference: None,
+        platform_policy: None,
         entrypoints,
         routers,
         services,

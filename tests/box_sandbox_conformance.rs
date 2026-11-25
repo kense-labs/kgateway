@@ -12,6 +12,7 @@ use tokio::process::{Child, Command};
 type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 
 const SANDBOX_BODY: &str = "a3s-box-sandbox-ready";
+const TEST_NODE_API_TOKEN: &str = "box-sandbox-conformance-token";
 const DEFAULT_SANDBOX_IMAGE: &str = "docker.io/library/busybox@sha256:fc6dddc4c44b1bfe37f41cae8e67d1693828e8f42a91862816d7953e2c9d3f23";
 
 struct ProcessGuard {
@@ -126,7 +127,7 @@ management {{
   enabled        = true
   address        = "127.0.0.1:{management_port}"
   path_prefix    = "/api/gateway"
-  auth_token_env = ""
+  auth_token_env = "KGATEWAY_TEST_BOX_NODE_API_TOKEN"
   allowed_ips    = ["127.0.0.1"]
 }}
 
@@ -164,20 +165,26 @@ fn start_box(
 }
 
 fn start_gateway(config: &Path) -> TestResult<ProcessGuard> {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_a3s-gateway"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_kgateway"));
     command
         .arg("--config")
         .arg(config)
+        .env("KGATEWAY_TEST_BOX_NODE_API_TOKEN", TEST_NODE_API_TOKEN)
         .arg("--log-level")
         .arg("info");
-    ProcessGuard::spawn("A3S Gateway", &mut command)
+    ProcessGuard::spawn("kgateway", &mut command)
 }
 
 async fn wait_for_health(process: &mut ProcessGuard, client: &Client, url: &str) -> TestResult {
     let deadline = Instant::now() + Duration::from_secs(90);
     loop {
         process.ensure_running()?;
-        if let Ok(response) = client.get(url).send().await {
+        if let Ok(response) = client
+            .get(url)
+            .bearer_auth(TEST_NODE_API_TOKEN)
+            .send()
+            .await
+        {
             if response.status().is_success() {
                 return Ok(());
             }
@@ -272,7 +279,8 @@ fn required_path(name: &str) -> TestResult<PathBuf> {
 
 #[test]
 fn generated_gateway_acl_validates() {
-    let config = a3s_gateway::config::GatewayConfig::from_acl(&gateway_config(18080, 18081, 19090))
+    env::set_var("KGATEWAY_TEST_BOX_NODE_API_TOKEN", TEST_NODE_API_TOKEN);
+    let config = kgateway::config::GatewayConfig::from_acl(&gateway_config(18080, 18081, 19090))
         .expect("Box Sandbox conformance ACL should parse");
     config
         .validate()
@@ -282,8 +290,8 @@ fn generated_gateway_acl_validates() {
 #[tokio::test]
 #[ignore = "requires the pinned A3S Box and OCI Runtime on a privileged Linux host"]
 async fn real_box_sandbox_endpoint_relay_scales_from_zero_and_retires() -> TestResult {
-    if env::var("A3S_GATEWAY_TEST_BOX_SANDBOX").as_deref() != Ok("1") {
-        return Err("set A3S_GATEWAY_TEST_BOX_SANDBOX=1 to run this destructive gate".into());
+    if env::var("KGATEWAY_TEST_BOX_SANDBOX").as_deref() != Ok("1") {
+        return Err("set KGATEWAY_TEST_BOX_SANDBOX=1 to run this destructive gate".into());
     }
     if !cfg!(target_os = "linux") {
         return Err("real Box Sandbox conformance requires Linux".into());
@@ -297,8 +305,8 @@ async fn real_box_sandbox_endpoint_relay_scales_from_zero_and_retires() -> TestR
         env::var(name).map_err(|_| format!("{name} must be set"))?;
     }
 
-    let box_binary = required_path("A3S_GATEWAY_BOX_BINARY")?;
-    let image = env::var("A3S_GATEWAY_BOX_SANDBOX_IMAGE")
+    let box_binary = required_path("KGATEWAY_BOX_BINARY")?;
+    let image = env::var("KGATEWAY_BOX_SANDBOX_IMAGE")
         .unwrap_or_else(|_| DEFAULT_SANDBOX_IMAGE.to_string());
     let directory = tempfile::tempdir()?;
     let catalog = directory.path().join("services.acl");

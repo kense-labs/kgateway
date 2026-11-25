@@ -1,5 +1,5 @@
-use a3s_gateway::config::GatewayConfig;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use kgateway::config::GatewayConfig;
 use std::time::Duration;
 
 fn generate_acl(num_services: usize) -> String {
