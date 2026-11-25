@@ -17,7 +17,7 @@ PENDING_BINARY=""
 
 usage() {
   cat <<'USAGE'
-Install the latest kgateway release for macOS or Linux.
+Install the latest kgateway release for Linux.
 
 Usage:
   install.sh [options]
@@ -123,26 +123,18 @@ detect_platform() {
     platform=$PLATFORM_OVERRIDE
   else
     os=$(uname -s)
+    [ "$os" = "Linux" ] || fail "unsupported operating system: $os"
     arch=$(uname -m)
-    case "$os" in
-      Darwin) os=darwin ;;
-      Linux) os=linux ;;
-      *) fail "unsupported operating system: $os" ;;
-    esac
     case "$arch" in
       x86_64 | amd64) arch=x86_64 ;;
       arm64 | aarch64) arch=arm64 ;;
       *) fail "unsupported architecture: $arch" ;;
     esac
-    if [ "$os" = "linux" ]; then
-      platform="linux-${arch}-musl"
-    else
-      platform="darwin-${arch}"
-    fi
+    platform="linux-${arch}-musl"
   fi
 
   case "$platform" in
-    darwin-arm64 | darwin-x86_64 | linux-arm64 | linux-arm64-musl | linux-x86_64 | linux-x86_64-musl)
+    linux-arm64 | linux-arm64-musl | linux-x86_64 | linux-x86_64-musl)
       printf '%s\n' "$platform"
       ;;
     *)
@@ -175,13 +167,7 @@ ensure_default_path() {
   shell_name=$(basename "${SHELL:-sh}")
   case "$shell_name" in
     zsh) profile="${HOME}/.zshrc" ;;
-    bash)
-      if [ "$(uname -s)" = "Darwin" ]; then
-        profile="${HOME}/.bash_profile"
-      else
-        profile="${HOME}/.bashrc"
-      fi
-      ;;
+    bash) profile="${HOME}/.bashrc" ;;
     sh | dash | ksh) profile="${HOME}/.profile" ;;
     *)
       log "${INSTALL_DIR} is not on PATH; add it to your ${shell_name} configuration"
@@ -200,6 +186,8 @@ ensure_default_path() {
     log "added ${INSTALL_DIR} to PATH in ${profile}; open a new shell to use it"
   fi
 }
+
+PLATFORM=$(detect_platform)
 
 if [ -z "$INSTALL_DIR" ]; then
   [ -n "${HOME:-}" ] || fail "HOME is not set; pass --install-dir explicitly"
@@ -223,7 +211,6 @@ case "$VERSION" in
   "" | *[!0-9A-Za-z.+-]*) fail "invalid version: $VERSION" ;;
 esac
 
-PLATFORM=$(detect_platform)
 ARCHIVE="${PROGRAM}-${VERSION}-${PLATFORM}.tar.gz"
 TAG="v${VERSION}"
 ARCHIVE_URL="${RELEASES_URL%/}/${TAG}/${ARCHIVE}"

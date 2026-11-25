@@ -114,11 +114,14 @@ else
 fi)
 [[ "$installed_sha_before" == "$installed_sha_after" ]]
 
-if KGATEWAY_PLATFORM="plan9-mips" sh "$repository_root/install.sh" \
-  --version "$version" --install-dir "$install_dir" --no-modify-path >/dev/null 2>&1; then
-  echo "installer accepted an unsupported platform" >&2
-  exit 1
-fi
+for unsupported_platform in darwin-arm64 windows-x86_64 plan9-mips; do
+  if output=$(KGATEWAY_PLATFORM="$unsupported_platform" sh "$repository_root/install.sh" \
+    --version "$version" --install-dir "$install_dir" --no-modify-path 2>&1); then
+    echo "installer accepted unsupported platform $unsupported_platform" >&2
+    exit 1
+  fi
+  grep -F "unsupported release platform: $unsupported_platform" <<<"$output" >/dev/null
+done
 
 sh "$repository_root/install.sh" --help | grep -F -- "--install-dir" >/dev/null
-echo "POSIX installer tests passed."
+echo "Linux installer tests passed."

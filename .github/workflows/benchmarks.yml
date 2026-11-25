@@ -205,7 +205,7 @@ jobs:
         run: |
           mkdir _site
           cp -R website/. _site/
-          cp install.sh install.ps1 _site/
+          cp install.sh _site/
 
       - name: Upload website artifact
         uses: actions/upload-pages-artifact@v5

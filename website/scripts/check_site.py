@@ -28,9 +28,10 @@ class Links(HTMLParser):
 def main():
     source = (SITE / "index.html").read_text(encoding="utf-8")
     links = Links(source).hrefs
-    for name in ("install.sh", "install.ps1"):
-        if f"./{name}" not in links or not (ROOT / name).is_file():
-            raise SystemExit(f"missing installer or installer link for {name}")
+    if "./install.sh" not in links or not (ROOT / "install.sh").is_file():
+        raise SystemExit("missing Linux installer or installer link")
+    if "./install.ps1" in links or (SITE / "install.ps1").exists():
+        raise SystemExit("the landing page publishes the Windows installer")
     if "<title>kgateway</title>" not in source or (SITE / "docs/index.html").exists():
         raise SystemExit("site does not match the kgateway landing page")
     for name in DATASETS:

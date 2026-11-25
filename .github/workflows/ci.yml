@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test macOS and Linux installer contract
+      - name: Test Linux installer contract
         run: bash scripts/test-install.sh
 
   installer-windows:

@@ -6,13 +6,11 @@ on:
     paths:
       - "website/**"
       - "install.sh"
-      - "install.ps1"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "website/**"
       - "install.sh"
-      - "install.ps1"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -52,7 +50,7 @@ jobs:
         run: |
           mkdir _site
           cp -R website/. _site/
-          cp install.sh install.ps1 _site/
+          cp install.sh _site/
       - name: Preserve published benchmark datasets
         if: vars.KGATEWAY_PAGES_URL != ''
         env:

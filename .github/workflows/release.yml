@@ -82,43 +82,27 @@ jobs:
           exit 1
 
   # ───────────────────────────────────────────────
-  # Build cross-compiled binaries
+  # Build Linux binaries
   # ───────────────────────────────────────────────
   build:
     name: Build / ${{ matrix.target }}
     needs: [verify, release-metadata]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            platform: darwin-arm64
-          - target: x86_64-apple-darwin
-            os: macos-15-intel
-            platform: darwin-x86_64
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
             platform: linux-x86_64
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
             platform: linux-arm64
             use_cross: true
           - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
             platform: linux-x86_64-musl
             use_zigbuild: true
           - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
             platform: linux-arm64-musl
             use_zigbuild: true
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            platform: windows-x86_64
-          - target: aarch64-pc-windows-msvc
-            os: windows-latest
-            platform: windows-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -145,25 +129,18 @@ jobs:
           cargo install cargo-zigbuild --quiet
 
       - name: Build
-        # Linux targets enable `kube` and `redis` features for K8s Ingress + distributed rate-limiting.
-        # macOS and Windows keep default features (no K8s deployment use case).
         shell: bash
         run: |
-          if [[ "${{ matrix.target }}" == *"linux"* ]]; then
-            FEATURES="--features kube,redis"
-          else
-            FEATURES=""
-          fi
           if [ "${{ matrix.use_cross }}" = "true" ]; then
-            cross build --locked -p kgateway --release --target ${{ matrix.target }} $FEATURES
+            cross build --locked -p kgateway --release --target ${{ matrix.target }} --features kube,redis
           elif [ "${{ matrix.use_zigbuild }}" = "true" ]; then
-            cargo zigbuild --locked -p kgateway --release --target ${{ matrix.target }} $FEATURES
+            cargo zigbuild --locked -p kgateway --release --target ${{ matrix.target }} --features kube,redis
           else
-            cargo build --locked -p kgateway --release --target ${{ matrix.target }} $FEATURES
+            cargo build --locked -p kgateway --release --target ${{ matrix.target }} --features kube,redis
           fi
 
       - name: Strip (Linux gnu)
-        if: runner.os == 'Linux' && matrix.use_zigbuild != true
+        if: matrix.use_zigbuild != true
         run: |
           BIN="target/${{ matrix.target }}/release/kgateway"
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
@@ -179,30 +156,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends llvm
           llvm-strip "target/${{ matrix.target }}/release/kgateway"
 
-      - name: Strip (macOS)
-        if: runner.os == 'macOS'
-        run: strip "target/${{ matrix.target }}/release/kgateway"
-
-      - name: Package Unix archive
-        if: runner.os != 'Windows'
+      - name: Package Linux archive
         shell: bash
         run: |
           BIN="target/${{ matrix.target }}/release/kgateway"
           VER="${GITHUB_REF_NAME#v}"
           ARCHIVE="kgateway-${VER}-${{ matrix.platform }}.tar.gz"
-          tar czf "$ARCHIVE" -C "$(dirname $BIN)" kgateway
+          tar czf "$ARCHIVE" -C "$(dirname "$BIN")" kgateway
           sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
-
-      - name: Package Windows archive
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $binary = "target/${{ matrix.target }}/release/kgateway.exe"
-          $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          $archive = "kgateway-$version-${{ matrix.platform }}.zip"
-          Compress-Archive -LiteralPath $binary -DestinationPath $archive
-          $sha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -LiteralPath "$archive.sha256" -Value "$sha256  $archive`n" -Encoding ascii -NoNewline
 
       - uses: actions/upload-artifact@v4
         with:
@@ -223,15 +184,22 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          pattern: '*-unknown-linux-*'
+          merge-multiple: true
           path: artifacts
 
       - name: Collect assets
         run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
           mkdir release
-          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) \
-            -exec cp {} release/ \;
-          cat release/*.sha256 > release/SHA256SUMS
-          ls -lh release/
+          for platform in linux-x86_64 linux-arm64 linux-x86_64-musl linux-arm64-musl; do
+            archive="kgateway-${version}-${platform}.tar.gz"
+            cp "artifacts/$archive" "artifacts/$archive.sha256" release/
+          done
+          cd release
+          cat ./*.sha256 > SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
 
       - name: Generate release notes
         run: |
@@ -302,6 +270,7 @@ jobs:
       - name: Download musl binaries
         uses: actions/download-artifact@v4
         with:
+          pattern: '*-unknown-linux-musl'
           path: bin
 
       - name: Extract binaries and prepare build contexts
@@ -396,74 +365,3 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
           push: true
-
-  # ───────────────────────────────────────────────
-  # Update Homebrew formula
-  # ───────────────────────────────────────────────
-  update-homebrew:
-    name: Update Homebrew
-    needs: github-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Homebrew publishing credentials
-        id: destination
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          if [ -n "$HOMEBREW_TAP_TOKEN" ]; then
-            echo 'enabled=true' >> "$GITHUB_OUTPUT"
-          else
-            echo '::notice::Homebrew publishing needs the target tap and a HOMEBREW_TAP_TOKEN secret'
-          fi
-
-      - uses: actions/checkout@v4
-        if: steps.destination.outputs.enabled == 'true'
-
-      - uses: actions/download-artifact@v4
-        if: steps.destination.outputs.enabled == 'true'
-        with:
-          path: artifacts
-
-      - name: Compute sha256
-        if: steps.destination.outputs.enabled == 'true'
-        id: sha
-        run: |
-          set -euo pipefail
-          VER="${GITHUB_REF_NAME#v}"
-          sha() {
-            sha256sum "artifacts/$1/kgateway-${VER}-$2.tar.gz" | awk '{print $1}'
-          }
-          echo "ver=$VER"                                                    >> "$GITHUB_OUTPUT"
-          echo "macos_arm64=$(sha aarch64-apple-darwin darwin-arm64)"        >> "$GITHUB_OUTPUT"
-          echo "macos_x64=$(sha x86_64-apple-darwin darwin-x86_64)"          >> "$GITHUB_OUTPUT"
-          echo "linux_arm64=$(sha aarch64-unknown-linux-musl linux-arm64-musl)" >> "$GITHUB_OUTPUT"
-          echo "linux_x64=$(sha x86_64-unknown-linux-musl linux-x86_64-musl)"   >> "$GITHUB_OUTPUT"
-
-      - uses: actions/checkout@v4
-        if: steps.destination.outputs.enabled == 'true'
-        with:
-          repository: kense-labs/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-tap
-
-      - name: Regenerate formula
-        if: steps.destination.outputs.enabled == 'true'
-        working-directory: homebrew-tap
-        env:
-          VER: ${{ steps.sha.outputs.ver }}
-          SHA_MACOS_ARM64: ${{ steps.sha.outputs.macos_arm64 }}
-          SHA_MACOS_X64: ${{ steps.sha.outputs.macos_x64 }}
-          SHA_LINUX_ARM64: ${{ steps.sha.outputs.linux_arm64 }}
-          SHA_LINUX_X64: ${{ steps.sha.outputs.linux_x64 }}
-        run: python3 ../.github/update-homebrew-formula.py
-
-      - name: Commit and push
-        if: steps.destination.outputs.enabled == 'true'
-        working-directory: homebrew-tap
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/kgateway.rb
-          git diff --cached --quiet && exit 0
-          git commit -m "chore: update kgateway to v${{ steps.sha.outputs.ver }}"
-          git push origin main

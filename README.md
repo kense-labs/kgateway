@@ -2,6 +2,10 @@
 
 `kgateway` is the public traffic entry point for Kense OS. The Rust data plane supports HTTP, gRPC, WebSocket, SSE, TCP, and UDP. It validates and applies managed snapshots atomically. In standalone mode it serves routes from local ACL configuration.
 
+## Install on Linux
+
+Releases provide GNU libc and musl archives for Linux AMD64 and ARM64. The `kgateway` and `kgateway-control` OCI images support both architectures. [Linux installer](https://kense-labs.github.io/kgateway/install.sh) · [GitHub Releases](https://github.com/kense-labs/kgateway/releases)
+
 ## Build and run
 
 ```sh
