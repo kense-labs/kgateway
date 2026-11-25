@@ -5,7 +5,7 @@ use crate::config::{
     InferenceConfig, InferencePhaseRole, InferenceSchedulingConfig, InferenceTransferHealth,
     InferenceWorkerConfig, ManagedTargetConfig, POWER_WORKER_OBSERVATION_SCHEMA,
 };
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -121,7 +121,7 @@ pub(crate) struct InferenceWorkerCandidate<'a> {
 pub(crate) struct InferenceWorkerSelectionRequest<'a, 'target> {
     pub(crate) target_id: Uuid,
     pub(crate) candidates: &'a [InferenceWorkerCandidate<'target>],
-    pub(crate) now: DateTime<Utc>,
+    pub(crate) now: Timestamp,
     pub(crate) routing_key: &'a [u8],
     pub(crate) cache_affinity_key: Option<&'a str>,
 }
@@ -129,7 +129,7 @@ pub(crate) struct InferenceWorkerSelectionRequest<'a, 'target> {
 pub(crate) struct InferenceWorkerPairSelectionRequest<'a, 'target> {
     pub(crate) target_id: Uuid,
     pub(crate) candidates: &'a [InferenceWorkerCandidate<'target>],
-    pub(crate) now: DateTime<Utc>,
+    pub(crate) now: Timestamp,
     pub(crate) routing_key: &'a [u8],
     pub(crate) cache_affinity_key: Option<&'a str>,
 }
@@ -223,7 +223,7 @@ pub(super) fn has_eligible_worker(
     scheduling: &InferenceSchedulingConfig,
     target_id: Uuid,
     candidates: &[InferenceWorkerCandidate<'_>],
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> bool {
     candidates.iter().any(|candidate| {
         evaluate_candidate(workers, scheduling.phase, target_id, candidate, 0, now).is_some()
@@ -235,7 +235,7 @@ pub(super) fn select_worker(
     scheduling: &InferenceSchedulingConfig,
     target_id: Uuid,
     candidates: &[InferenceWorkerCandidate<'_>],
-    now: DateTime<Utc>,
+    now: Timestamp,
     routing_key: &[u8],
     cache_affinity_key: Option<&str>,
 ) -> Option<InferenceWorkerSelection> {
@@ -264,7 +264,7 @@ pub(super) fn select_worker_pair(
     scheduling: &InferenceSchedulingConfig,
     target_id: Uuid,
     candidates: &[InferenceWorkerCandidate<'_>],
-    now: DateTime<Utc>,
+    now: Timestamp,
     routing_key: &[u8],
     cache_affinity_key: Option<&str>,
 ) -> Option<InferenceWorkerPairSelection> {
@@ -314,7 +314,7 @@ fn distributed_candidates<'a>(
     phase: InferencePhaseRole,
     target_id: Uuid,
     candidates: &[InferenceWorkerCandidate<'a>],
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Vec<EvaluatedWorker<'a>> {
     candidates
         .iter()
@@ -384,7 +384,7 @@ fn evaluate_candidate<'a>(
     target_id: Uuid,
     candidate: &InferenceWorkerCandidate<'a>,
     index: usize,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Option<EvaluatedWorker<'a>> {
     let target = candidate.target?;
     if !candidate.healthy || target.target_id != target_id {

@@ -24,7 +24,7 @@ entrypoints "web" {{ address = "127.0.0.1:8080" }}
     )
 }
 
-fn inference_managed_acl(gateway_id: Uuid, expires_at: DateTime<Utc>) -> String {
+fn inference_managed_acl(gateway_id: Uuid, expires_at: Timestamp) -> String {
     format!(
         r#"
 mode {{ kind = "cloud-managed" }}
@@ -49,7 +49,7 @@ const VERIFIER_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQxMjM0NTY3
 
 fn credential_bearing_inference_acl(
     gateway_id: Uuid,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
     generation: u64,
     revoked: bool,
     include_grant: bool,
@@ -130,13 +130,13 @@ inference {{
 fn credential_snapshot(
     gateway_id: Uuid,
     revision: u64,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
     generation: u64,
     revoked: bool,
     include_grant: bool,
     tokenizer_revision: &str,
 ) -> ManagedSnapshot {
-    let issued_at = expires_at - Duration::hours(1);
+    let issued_at = expires_at - Duration::from_hours(1);
     ManagedSnapshot::new(
         gateway_id,
         revision,
@@ -156,7 +156,7 @@ fn credential_snapshot(
 
 fn target_set_inference_acl(
     gateway_id: Uuid,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
     include_primary: bool,
 ) -> String {
     let primary_service = if include_primary {
@@ -254,10 +254,10 @@ inference {{
 fn target_set_snapshot(
     gateway_id: Uuid,
     revision: u64,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
     include_primary: bool,
 ) -> ManagedSnapshot {
-    let issued_at = expires_at - Duration::hours(1);
+    let issued_at = expires_at - Duration::from_hours(1);
     ManagedSnapshot::new(
         gateway_id,
         revision,
@@ -273,20 +273,20 @@ const WORKER_EPOCH: &str = "77777777-7777-4777-8777-777777777777";
 
 fn scheduled_worker_inference_acl(
     gateway_id: Uuid,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
     workers: ScheduledWorkerAclMode,
 ) -> String {
     let (observed_at, worker_expires) = match workers {
         ScheduledWorkerAclMode::Absent => (String::new(), String::new()),
         ScheduledWorkerAclMode::Fresh => (
-            (Utc::now() - Duration::seconds(1)).to_rfc3339(),
-            (Utc::now() + Duration::seconds(14)).to_rfc3339(),
+            (Timestamp::now() - Duration::from_secs(1)).to_rfc3339(),
+            (Timestamp::now() + Duration::from_secs(14)).to_rfc3339(),
         ),
         // Already expired at apply time: Cloud must not replace a ready
         // scheduled runtime with a stale observation shell.
         ScheduledWorkerAclMode::Stale => (
-            (Utc::now() - Duration::seconds(10)).to_rfc3339(),
-            Utc::now().to_rfc3339(),
+            (Timestamp::now() - Duration::from_secs(10)).to_rfc3339(),
+            Timestamp::now().to_rfc3339(),
         ),
     };
     let workers = match workers {
@@ -407,10 +407,10 @@ enum ScheduledWorkerAclMode {
 fn scheduled_worker_snapshot(
     gateway_id: Uuid,
     revision: u64,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
     workers: ScheduledWorkerAclMode,
 ) -> ManagedSnapshot {
-    let issued_at = expires_at - Duration::hours(1);
+    let issued_at = expires_at - Duration::from_hours(1);
     ManagedSnapshot::new(
         gateway_id,
         revision,
@@ -422,13 +422,13 @@ fn scheduled_worker_snapshot(
 }
 
 fn snapshot(gateway_id: Uuid, revision: u64) -> ManagedSnapshot {
-    let now = Utc::now();
+    let now = Timestamp::now();
     ManagedSnapshot::new(
         gateway_id,
         revision,
         (revision > 1).then_some(revision - 1),
         now,
-        now + Duration::hours(1),
+        now + Duration::from_hours(1),
         managed_acl(gateway_id),
     )
 }
@@ -438,13 +438,13 @@ fn durable_snapshot(
     revision: u64,
     state_file: &std::path::Path,
 ) -> ManagedSnapshot {
-    let now = Utc::now();
+    let now = Timestamp::now();
     ManagedSnapshot::new(
         gateway_id,
         revision,
         (revision > 1).then_some(revision - 1),
         now,
-        now + Duration::hours(1),
+        now + Duration::from_hours(1),
         durable_managed_acl(gateway_id, state_file),
     )
 }
@@ -461,14 +461,14 @@ fn digest_is_over_exact_acl_bytes() {
 #[test]
 fn managed_snapshot_debug_redacts_acl_content() {
     let gateway_id = Uuid::new_v4();
-    let now = Utc::now();
+    let now = Timestamp::now();
     let sensitive = "verifier_hash-do-not-log";
     let snapshot = ManagedSnapshot::new(
         gateway_id,
         1,
         None,
         now,
-        now + Duration::hours(1),
+        now + Duration::from_hours(1),
         sensitive,
     );
 
@@ -559,8 +559,8 @@ async fn inference_policy_expiry_must_match_the_atomic_managed_snapshot() {
             })
         })
     };
-    let issued_at = Utc::now();
-    let expires_at = issued_at + Duration::hours(1);
+    let issued_at = Timestamp::now();
+    let expires_at = issued_at + Duration::from_hours(1);
     let first = ManagedSnapshot::new(
         gateway_id,
         1,
@@ -576,15 +576,15 @@ async fn inference_policy_expiry_must_match_the_atomic_managed_snapshot() {
     assert!(applied.status.ready);
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
 
-    let second_issued_at = Utc::now();
-    let second_expires_at = second_issued_at + Duration::hours(1);
+    let second_issued_at = Timestamp::now();
+    let second_expires_at = second_issued_at + Duration::from_hours(1);
     let mismatch = ManagedSnapshot::new(
         gateway_id,
         2,
         Some(1),
         second_issued_at,
         second_expires_at,
-        inference_managed_acl(gateway_id, second_expires_at - Duration::minutes(1)),
+        inference_managed_acl(gateway_id, second_expires_at - Duration::from_mins(1)),
     );
     let rejected = store.apply(mismatch, Some(&callback)).await;
 
@@ -596,7 +596,7 @@ async fn inference_policy_expiry_must_match_the_atomic_managed_snapshot() {
         .unwrap()
         .contains("exactly match the managed snapshot expiry"));
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 }
 
 #[tokio::test]
@@ -635,7 +635,7 @@ async fn concurrent_applies_are_serialized_by_revision() {
     };
     entered.notified().await;
     assert_eq!(
-        store.status(Some(first_identity), Utc::now()).state,
+        store.status(Some(first_identity), Timestamp::now()).state,
         ManagedSnapshotState::Applying
     );
     let second = {
@@ -653,7 +653,7 @@ async fn concurrent_applies_are_serialized_by_revision() {
         second.await.unwrap().status.state,
         ManagedSnapshotState::Applied
     );
-    assert!(store.status(Some(second_identity), Utc::now()).ready);
+    assert!(store.status(Some(second_identity), Timestamp::now()).ready);
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
 }
 
@@ -673,14 +673,18 @@ async fn durable_applied_snapshot_recovers_and_replays_without_reload() {
     drop(store);
 
     let recovered = ManagedSnapshotStore::new(Some(gateway_id), Some(state_file));
-    let recovery = recovered.load_recovery(Utc::now()).await.unwrap().unwrap();
+    let recovery = recovered
+        .load_recovery(Timestamp::now())
+        .await
+        .unwrap()
+        .unwrap();
     recovered
-        .complete_recovery(recovery, Utc::now())
+        .complete_recovery(recovery, Timestamp::now())
         .await
         .unwrap();
     assert!(
         recovered
-            .status(Some(snapshot.identity()), Utc::now())
+            .status(Some(snapshot.identity()), Timestamp::now())
             .ready
     );
 
@@ -739,18 +743,29 @@ async fn prepared_journal_is_completed_only_after_recovery() {
         .unwrap();
 
     let store = ManagedSnapshotStore::new(Some(gateway_id), Some(state_file.clone()));
-    let recovery = store.load_recovery(Utc::now()).await.unwrap().unwrap();
+    let recovery = store
+        .load_recovery(Timestamp::now())
+        .await
+        .unwrap()
+        .unwrap();
     let before = persistence.read().await.unwrap().unwrap();
     assert_eq!(before.phase, JournalPhase::Prepared);
     assert_eq!(
-        store.status(None, Utc::now()).state,
+        store.status(None, Timestamp::now()).state,
         ManagedSnapshotState::Uninitialized
     );
 
-    store.complete_recovery(recovery, Utc::now()).await.unwrap();
+    store
+        .complete_recovery(recovery, Timestamp::now())
+        .await
+        .unwrap();
     let after = persistence.read().await.unwrap().unwrap();
     assert_eq!(after.phase, JournalPhase::Applied);
-    assert!(store.status(Some(snapshot.identity()), Utc::now()).ready);
+    assert!(
+        store
+            .status(Some(snapshot.identity()), Timestamp::now())
+            .ready
+    );
 }
 
 #[tokio::test]
@@ -767,7 +782,7 @@ async fn corrupt_durable_journal_fails_closed() {
     }
     let store = ManagedSnapshotStore::new(Some(Uuid::new_v4()), Some(state_file));
 
-    let error = store.load_recovery(Utc::now()).await.unwrap_err();
+    let error = store.load_recovery(Timestamp::now()).await.unwrap_err();
     assert!(error.to_string().contains("invalid JSON"));
 }
 
@@ -836,13 +851,13 @@ async fn durable_recovery_rejects_identity_digest_and_expiry_mismatches() {
     ManagedSnapshotPersistence::new(identity_file.clone())
         .write(&ManagedSnapshotJournal::applied(
             identity_snapshot,
-            Utc::now(),
+            Timestamp::now(),
         ))
         .await
         .unwrap();
     let identity_store = ManagedSnapshotStore::new(Some(Uuid::new_v4()), Some(identity_file));
     assert!(identity_store
-        .load_recovery(Utc::now())
+        .load_recovery(Timestamp::now())
         .await
         .unwrap_err()
         .to_string()
@@ -854,13 +869,13 @@ async fn durable_recovery_rejects_identity_digest_and_expiry_mismatches() {
     ManagedSnapshotPersistence::new(digest_file.clone())
         .write(&ManagedSnapshotJournal::applied(
             digest_snapshot,
-            Utc::now(),
+            Timestamp::now(),
         ))
         .await
         .unwrap();
     let digest_store = ManagedSnapshotStore::new(Some(gateway_id), Some(digest_file));
     assert!(digest_store
-        .load_recovery(Utc::now())
+        .load_recovery(Timestamp::now())
         .await
         .unwrap_err()
         .to_string()
@@ -868,18 +883,18 @@ async fn durable_recovery_rejects_identity_digest_and_expiry_mismatches() {
 
     let expiry_file = directory.path().join("expiry.json");
     let mut expiry_snapshot = durable_snapshot(gateway_id, 1, &expiry_file);
-    expiry_snapshot.issued_at = Utc::now() - Duration::hours(2);
-    expiry_snapshot.expires_at = Utc::now() - Duration::hours(1);
+    expiry_snapshot.issued_at = Timestamp::now() - Duration::from_hours(2);
+    expiry_snapshot.expires_at = Timestamp::now() - Duration::from_hours(1);
     ManagedSnapshotPersistence::new(expiry_file.clone())
         .write(&ManagedSnapshotJournal::applied(
             expiry_snapshot,
-            Utc::now() - Duration::hours(2),
+            Timestamp::now() - Duration::from_hours(2),
         ))
         .await
         .unwrap();
     let expiry_store = ManagedSnapshotStore::new(Some(gateway_id), Some(expiry_file));
     assert!(expiry_store
-        .load_recovery(Utc::now())
+        .load_recovery(Timestamp::now())
         .await
         .unwrap_err()
         .to_string()
@@ -920,7 +935,7 @@ async fn durable_recovery_rejects_group_or_world_accessible_journal() {
     let snapshot = durable_snapshot(gateway_id, 1, &state_file);
     let persistence = ManagedSnapshotPersistence::new(state_file.clone());
     persistence
-        .write(&ManagedSnapshotJournal::applied(snapshot, Utc::now()))
+        .write(&ManagedSnapshotJournal::applied(snapshot, Timestamp::now()))
         .await
         .unwrap();
     tokio::fs::set_permissions(&state_file, PermissionsExt::from_mode(0o640))
@@ -928,7 +943,7 @@ async fn durable_recovery_rejects_group_or_world_accessible_journal() {
         .unwrap();
 
     let store = ManagedSnapshotStore::new(Some(gateway_id), Some(state_file));
-    let error = store.load_recovery(Utc::now()).await.unwrap_err();
+    let error = store.load_recovery(Timestamp::now()).await.unwrap_err();
     assert!(error.to_string().contains("group or other users"));
 }
 
@@ -1072,7 +1087,7 @@ async fn credential_successor_snapshot_revokes_prior_key_atomically() {
             })
         })
     };
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = Timestamp::now() + Duration::from_hours(1);
     let first = credential_snapshot(
         gateway_id,
         1,
@@ -1087,7 +1102,7 @@ async fn credential_successor_snapshot_revokes_prior_key_atomically() {
     assert_eq!(applied.status.state, ManagedSnapshotState::Applied);
     assert!(applied.status.ready);
 
-    let successor_expires = Utc::now() + Duration::hours(1);
+    let successor_expires = Timestamp::now() + Duration::from_hours(1);
     let successor = credential_snapshot(
         gateway_id,
         2,
@@ -1101,8 +1116,12 @@ async fn credential_successor_snapshot_revokes_prior_key_atomically() {
     let replaced = store.apply(successor, Some(&callback)).await;
     assert_eq!(replaced.status.state, ManagedSnapshotState::Applied);
     assert!(replaced.status.ready);
-    assert!(!store.status(Some(first_identity), Utc::now()).ready);
-    assert!(store.status(Some(successor_identity), Utc::now()).ready);
+    assert!(!store.status(Some(first_identity), Timestamp::now()).ready);
+    assert!(
+        store
+            .status(Some(successor_identity), Timestamp::now())
+            .ready
+    );
 
     let observed = observed.lock().unwrap().clone();
     assert_eq!(observed, vec![(3, false, true), (3, true, false)]);
@@ -1120,7 +1139,7 @@ async fn expected_revision_cas_rejects_stale_credential_bearing_successor() {
             Box::pin(async { Ok(GatewayConfig::default()) })
         })
     };
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = Timestamp::now() + Duration::from_hours(1);
     let first = credential_snapshot(
         gateway_id,
         1,
@@ -1140,11 +1159,11 @@ async fn expected_revision_cas_rejects_stale_credential_bearing_successor() {
         gateway_id,
         3,
         Some(2),
-        Utc::now(),
-        Utc::now() + Duration::hours(1),
+        Timestamp::now(),
+        Timestamp::now() + Duration::from_hours(1),
         credential_bearing_inference_acl(
             gateway_id,
-            Utc::now() + Duration::hours(1),
+            Timestamp::now() + Duration::from_hours(1),
             3,
             true,
             false,
@@ -1160,7 +1179,7 @@ async fn expected_revision_cas_rejects_stale_credential_bearing_successor() {
         .unwrap()
         .contains("expected revision"));
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 }
 
 #[tokio::test]
@@ -1175,7 +1194,7 @@ async fn unknown_tokenizer_revision_successor_is_rejected_with_prior_runtime_ret
             Box::pin(async { Ok(GatewayConfig::default()) })
         })
     };
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = Timestamp::now() + Duration::from_hours(1);
     let first = credential_snapshot(
         gateway_id,
         1,
@@ -1191,7 +1210,7 @@ async fn unknown_tokenizer_revision_successor_is_rejected_with_prior_runtime_ret
     let bad = credential_snapshot(
         gateway_id,
         2,
-        Utc::now() + Duration::hours(1),
+        Timestamp::now() + Duration::from_hours(1),
         3,
         true,
         false,
@@ -1206,7 +1225,7 @@ async fn unknown_tokenizer_revision_successor_is_rejected_with_prior_runtime_ret
         .unwrap()
         .contains("tokenizer_revision"));
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 }
 
 #[tokio::test]
@@ -1241,7 +1260,7 @@ async fn grant_successor_snapshot_clears_grants_without_revoking_credential() {
             })
         })
     };
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = Timestamp::now() + Duration::from_hours(1);
     let first = credential_snapshot(
         gateway_id,
         1,
@@ -1260,7 +1279,7 @@ async fn grant_successor_snapshot_clears_grants_without_revoking_credential() {
     let successor = credential_snapshot(
         gateway_id,
         2,
-        Utc::now() + Duration::hours(1),
+        Timestamp::now() + Duration::from_hours(1),
         3,
         false,
         false,
@@ -1270,8 +1289,12 @@ async fn grant_successor_snapshot_clears_grants_without_revoking_credential() {
     let replaced = store.apply(successor, Some(&callback)).await;
     assert_eq!(replaced.status.state, ManagedSnapshotState::Applied);
     assert!(replaced.status.ready);
-    assert!(!store.status(Some(first_identity), Utc::now()).ready);
-    assert!(store.status(Some(successor_identity), Utc::now()).ready);
+    assert!(!store.status(Some(first_identity), Timestamp::now()).ready);
+    assert!(
+        store
+            .status(Some(successor_identity), Timestamp::now())
+            .ready
+    );
 
     let observed = observed.lock().unwrap().clone();
     assert_eq!(
@@ -1327,20 +1350,29 @@ async fn target_successor_snapshot_withdraws_primary_with_fallback_retained() {
             })
         })
     };
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = Timestamp::now() + Duration::from_hours(1);
     let first = target_set_snapshot(gateway_id, 1, expires_at, true);
     let first_identity = first.identity();
     let applied = store.apply(first, Some(&callback)).await;
     assert_eq!(applied.status.state, ManagedSnapshotState::Applied);
     assert!(applied.status.ready);
 
-    let successor = target_set_snapshot(gateway_id, 2, Utc::now() + Duration::hours(1), false);
+    let successor = target_set_snapshot(
+        gateway_id,
+        2,
+        Timestamp::now() + Duration::from_hours(1),
+        false,
+    );
     let successor_identity = successor.identity();
     let replaced = store.apply(successor, Some(&callback)).await;
     assert_eq!(replaced.status.state, ManagedSnapshotState::Applied);
     assert!(replaced.status.ready);
-    assert!(!store.status(Some(first_identity), Utc::now()).ready);
-    assert!(store.status(Some(successor_identity), Utc::now()).ready);
+    assert!(!store.status(Some(first_identity), Timestamp::now()).ready);
+    assert!(
+        store
+            .status(Some(successor_identity), Timestamp::now())
+            .ready
+    );
 
     let observed = observed.lock().unwrap().clone();
     assert_eq!(
@@ -1385,7 +1417,7 @@ async fn empty_worker_successor_is_rejected_with_prior_scheduled_runtime_retaine
             Box::pin(async { Ok(GatewayConfig::default()) })
         })
     };
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = Timestamp::now() + Duration::from_hours(1);
     let first = scheduled_worker_snapshot(gateway_id, 1, expires_at, ScheduledWorkerAclMode::Fresh);
     let first_identity = first.identity();
     let applied = store.apply(first, Some(&callback)).await;
@@ -1396,7 +1428,7 @@ async fn empty_worker_successor_is_rejected_with_prior_scheduled_runtime_retaine
     let empty_workers = scheduled_worker_snapshot(
         gateway_id,
         2,
-        Utc::now() + Duration::hours(1),
+        Timestamp::now() + Duration::from_hours(1),
         ScheduledWorkerAclMode::Absent,
     );
     let rejected = store.apply(empty_workers, Some(&callback)).await;
@@ -1413,7 +1445,7 @@ async fn empty_worker_successor_is_rejected_with_prior_scheduled_runtime_retaine
         rejected.status.reason
     );
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 }
 
 #[tokio::test]
@@ -1430,7 +1462,7 @@ async fn stale_worker_successor_is_rejected_with_prior_scheduled_runtime_retaine
             Box::pin(async { Ok(GatewayConfig::default()) })
         })
     };
-    let expires_at = Utc::now() + Duration::hours(1);
+    let expires_at = Timestamp::now() + Duration::from_hours(1);
     let first = scheduled_worker_snapshot(gateway_id, 1, expires_at, ScheduledWorkerAclMode::Fresh);
     let first_identity = first.identity();
     let applied = store.apply(first, Some(&callback)).await;
@@ -1441,7 +1473,7 @@ async fn stale_worker_successor_is_rejected_with_prior_scheduled_runtime_retaine
     let stale = scheduled_worker_snapshot(
         gateway_id,
         2,
-        Utc::now() + Duration::hours(1),
+        Timestamp::now() + Duration::from_hours(1),
         ScheduledWorkerAclMode::Stale,
     );
     let rejected = store.apply(stale, Some(&callback)).await;
@@ -1458,5 +1490,5 @@ async fn stale_worker_successor_is_rejected_with_prior_scheduled_runtime_retaine
         rejected.status.reason
     );
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 }

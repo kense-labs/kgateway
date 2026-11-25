@@ -1,9 +1,9 @@
 use super::budget::BudgetDebit;
 use crate::platform_identity::ServiceInvocation;
 use crate::response_body::ResponseBody;
+use crate::time::Timestamp;
 use crate::usage::{UsageReservation, UsageSpool, UsageSpoolError};
 use bytes::Bytes;
-use chrono::Utc;
 use http::{Response, StatusCode};
 use hyper::body::{Body, Frame, SizeHint};
 use serde_json::json;
@@ -79,7 +79,7 @@ impl Meter {
             .expect("usage event is an object");
         record.insert("kind".to_string(), json!("request-terminal"));
         record.insert("event_id".to_string(), json!(self.terminal_id));
-        record.insert("at".to_string(), json!(Utc::now()));
+        record.insert("at".to_string(), json!(Timestamp::now()));
         record.insert("billing_parent".to_string(), record["request_id"].clone());
         record.insert(
             "status".to_string(),

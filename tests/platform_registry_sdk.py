@@ -173,22 +173,41 @@ def generate_artifacts(config, directory):
 
 
 def build_probes(directory, with_chat):
+    metadata = json.loads(
+        subprocess.check_output(
+            ["cargo", "metadata", "--locked", "--format-version=1"], cwd=ROOT
+        )
+    )["resolve"]
+    root = next(node for node in metadata["nodes"] if node["id"] == metadata["root"])
+    dependency_names = {
+        dep["pkg"]: dep["name"]
+        for dep in root["deps"]
+        if dep["name"] in {"reqwest", "tokio", "serde_json"}
+    }
     artifacts = subprocess.check_output(
         ["cargo", "build", "--locked", "--bin", "kgateway", "--message-format=json"],
         cwd=ROOT,
         text=True,
     )
     dependencies = {}
+    search_paths = set()
     for line in artifacts.splitlines():
         message = json.loads(line)
-        if message["reason"] == "compiler-artifact" and message["target"]["name"] in {
-            "reqwest",
-            "tokio",
-            "serde_json",
-        }:
-            name = message["target"]["name"]
+        if message["reason"] != "compiler-artifact":
+            continue
+        libraries = [
+            Path(filename)
+            for filename in message["filenames"]
+            if Path(filename).suffix in {".rlib", ".so", ".dylib", ".dll"}
+        ]
+        search_paths.update(path.parent for path in libraries)
+        if (
+            message["package_id"] in dependency_names
+            and "lib" in message["target"]["kind"]
+        ):
+            name = dependency_names[message["package_id"]]
             dependencies[name] = next(
-                Path(file) for file in message["filenames"] if file.endswith(".rlib")
+                path for path in libraries if path.suffix == ".rlib"
             )
     (directory / "probe.rs").write_text(
         RUST_PROBE.replace("// @CHAT@", RUST_CHAT if with_chat else "")
@@ -202,7 +221,7 @@ def build_probes(directory, with_chat):
         "-o",
         str(directory / "rust-probe"),
     ]
-    for parent in sorted({path.parent for path in dependencies.values()}):
+    for parent in sorted(search_paths):
         rust.extend(("-L", f"dependency={parent}"))
     for name, path in dependencies.items():
         rust.extend(("--extern", f"{name}={path}"))

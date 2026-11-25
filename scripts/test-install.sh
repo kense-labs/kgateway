@@ -16,6 +16,7 @@ cleanup() {
 trap cleanup EXIT
 
 version="9.8.7-test"
+binary_version="kgateway ${version} 1234567890abcdef1234567890abcdef12345678"
 platform="linux-x86_64-musl"
 archive="kgateway-${version}-${platform}.tar.gz"
 release_dir="$fixture_root/download/v${version}"
@@ -26,7 +27,7 @@ printf '{"tag_name":"v%s"}\n' "$version" > "$fixture_root/latest.json"
 
 cat > "$fixture_root/archive/kgateway" <<EOF
 #!/bin/sh
-printf '%s\n' 'kgateway ${version}'
+printf '%s\n' '${binary_version}'
 EOF
 chmod 755 "$fixture_root/archive/kgateway"
 tar -czf "$release_dir/$archive" -C "$fixture_root/archive" kgateway
@@ -76,7 +77,7 @@ installer_output=$(KGATEWAY_RELEASES_URL="$releases_url" \
 grep -F "verified SHA-256" <<<"$installer_output" >/dev/null
 grep -F "installed kgateway ${version}" <<<"$installer_output" >/dev/null
 [[ -x "$install_dir/kgateway" ]]
-[[ "$("$install_dir/kgateway" --version)" == "kgateway ${version}" ]]
+[[ "$("$install_dir/kgateway" --version)" == "$binary_version" ]]
 
 latest_install_dir="$fixture_root/install-latest"
 KGATEWAY_RELEASES_URL="$releases_url" \
@@ -86,7 +87,7 @@ KGATEWAY_RELEASES_URL="$releases_url" \
   sh "$repository_root/install.sh" \
     --install-dir "$latest_install_dir" \
     --no-modify-path >/dev/null
-[[ "$("$latest_install_dir/kgateway" --version)" == "kgateway ${version}" ]]
+[[ "$("$latest_install_dir/kgateway" --version)" == "$binary_version" ]]
 
 installed_sha_before=$(if command -v sha256sum >/dev/null 2>&1; then
   sha256sum "$install_dir/kgateway" | awk '{print $1}'

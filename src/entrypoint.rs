@@ -521,7 +521,7 @@ impl GatewayRuntime {
     pub(crate) fn allows_traffic(&self) -> bool {
         self.managed_snapshot_store
             .as_ref()
-            .is_none_or(|store| store.allows_traffic(chrono::Utc::now()))
+            .is_none_or(|store| store.allows_traffic(crate::time::Timestamp::now()))
     }
 
     pub fn load(&self) -> Arc<GatewayState> {
@@ -1035,7 +1035,7 @@ async fn handle_http_request(
                 &route.router_name,
                 profile,
                 req.headers(),
-                chrono::Utc::now(),
+                crate::time::Timestamp::now(),
             )
             .await
         {
@@ -1057,23 +1057,26 @@ async fn handle_http_request(
             .get_or_insert_with(crate::observability::tracing::TraceContext::new_root)
             .trace_id
             .clone();
-        let identity =
-            match authorizer.request_identity(authenticated, profile, trace_id, chrono::Utc::now())
-            {
-                Ok(identity) => identity,
-                Err(error) => {
-                    return Ok(finish_native_response(
-                        BufferedResponsePipeline::new(&pipeline, req.headers()),
-                        &state,
-                        &route,
-                        request_start,
-                        access_log,
-                        None,
-                        error.into_response(),
-                    )
-                    .await);
-                }
-            };
+        let identity = match authorizer.request_identity(
+            authenticated,
+            profile,
+            trace_id,
+            crate::time::Timestamp::now(),
+        ) {
+            Ok(identity) => identity,
+            Err(error) => {
+                return Ok(finish_native_response(
+                    BufferedResponsePipeline::new(&pipeline, req.headers()),
+                    &state,
+                    &route,
+                    request_start,
+                    access_log,
+                    None,
+                    error.into_response(),
+                )
+                .await);
+            }
+        };
         req.headers_mut().remove(http::header::AUTHORIZATION);
         identity.prepare_request_headers(req.headers_mut());
         if let Some(access_log) = access_log.as_mut() {
@@ -1208,10 +1211,12 @@ async fn handle_http_request(
             .as_ref()
             .ok_or(InferenceAccessError::Unavailable)
             .and_then(|(authorizer, authenticated)| {
-                let models = authorizer.allowed_models(*authenticated, chrono::Utc::now())?;
+                let models =
+                    authorizer.allowed_models(*authenticated, crate::time::Timestamp::now())?;
                 let response =
                     models_response(&models).map_err(|_| InferenceAccessError::Unavailable)?;
-                let admission = authorizer.admit_request(*authenticated, chrono::Utc::now())?;
+                let admission =
+                    authorizer.admit_request(*authenticated, crate::time::Timestamp::now())?;
                 Ok((response, admission))
             });
         let (response, admission) = match response_and_admission {
@@ -1354,7 +1359,12 @@ async fn handle_http_request(
                         .map(|profile| request.estimate_token_reservation(profile))
                         .unwrap_or(1);
                     let admission = match authorizer
-                        .admit_model(*authenticated, &alias, reserved_tokens, chrono::Utc::now())
+                        .admit_model(
+                            *authenticated,
+                            &alias,
+                            reserved_tokens,
+                            crate::time::Timestamp::now(),
+                        )
                         .await
                     {
                         Ok(admission) => admission,

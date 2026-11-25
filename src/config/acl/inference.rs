@@ -9,8 +9,8 @@ use crate::config::{
     INFERENCE_TOKENIZER_REVISION,
 };
 use crate::error::Result;
+use crate::time::Timestamp;
 use a3s_acl::{Block, Value};
-use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -439,10 +439,9 @@ fn required_uuid_attr(block: &Block, key: &str) -> Result<Uuid> {
         .map_err(|error| config_error(format!("Invalid inference {key} '{value}': {error}")))
 }
 
-fn required_timestamp_attr(block: &Block, key: &str) -> Result<DateTime<Utc>> {
+fn required_timestamp_attr(block: &Block, key: &str) -> Result<Timestamp> {
     let value = required_literal_string_attr(block, key)?;
-    DateTime::parse_from_rfc3339(&value)
-        .map(|timestamp| timestamp.with_timezone(&Utc))
+    Timestamp::parse_from_rfc3339(&value)
         .map_err(|error| config_error(format!("Invalid inference {key} '{value}': {error}")))
 }
 

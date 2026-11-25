@@ -12,8 +12,8 @@ use super::{
 use crate::config::{GatewayConfig, OperatingMode};
 use crate::error::{GatewayError, Result};
 use crate::inference::valid_model_alias;
+use crate::time::Timestamp;
 use argon2::password_hash::PasswordHash;
-use chrono::{DateTime, Utc};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use uuid::Uuid;
 
@@ -38,7 +38,7 @@ impl InferenceConfig {
     pub(in crate::config) fn validate(
         &self,
         gateway: &GatewayConfig,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<()> {
         if gateway.mode != OperatingMode::CloudManaged || gateway.managed.gateway_id.is_none() {
             return Err(config_error(
@@ -144,7 +144,7 @@ impl InferenceConfig {
 
     pub(crate) fn validate_managed_expiry(
         &self,
-        managed_expires_at: DateTime<Utc>,
+        managed_expires_at: Timestamp,
     ) -> std::result::Result<(), String> {
         if self.expires_at != managed_expires_at {
             return Err(

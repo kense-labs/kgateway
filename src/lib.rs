@@ -56,6 +56,7 @@ pub mod router;
 pub(crate) mod scaling;
 pub(crate) mod service;
 pub(crate) mod static_object;
+pub mod time;
 pub(crate) mod usage;
 #[cfg(feature = "wire")]
 pub mod wire;

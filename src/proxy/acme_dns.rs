@@ -277,10 +277,12 @@ fn sigv4_sign(
     body: &str,
     access_key_id: &str,
     secret_access_key: &str,
-    now: &chrono::DateTime<chrono::Utc>,
+    now: &crate::time::Timestamp,
 ) -> HashMap<String, String> {
-    let datetime = now.format("%Y%m%dT%H%M%SZ").to_string();
-    let date = now.format("%Y%m%d").to_string();
+    let datetime = now.format(::time::macros::format_description!(
+        "[year][month][day]T[hour][minute][second]Z"
+    ));
+    let date = now.format(::time::macros::format_description!("[year][month][day]"));
 
     let content_type = "application/xml";
     let payload_hash = sha256_hex(body.as_bytes());
@@ -378,7 +380,7 @@ impl Route53Solver {
         let body = self.change_xml(action, domain, value);
         let path = self.api_path();
         let url = self.api_url();
-        let now = chrono::Utc::now();
+        let now = crate::time::Timestamp::now();
 
         let signed = sigv4_sign(
             "POST",
@@ -715,9 +717,7 @@ mod tests {
 
     #[test]
     fn test_sigv4_sign_produces_required_headers() {
-        let now = chrono::DateTime::parse_from_rfc3339("2024-01-15T12:00:00Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc);
+        let now = crate::time::Timestamp::parse_from_rfc3339("2024-01-15T12:00:00Z").unwrap();
 
         let headers = sigv4_sign(
             "POST",
@@ -745,9 +745,7 @@ mod tests {
 
     #[test]
     fn test_sigv4_sign_is_deterministic() {
-        let now = chrono::DateTime::parse_from_rfc3339("2024-06-01T08:30:00Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc);
+        let now = crate::time::Timestamp::parse_from_rfc3339("2024-06-01T08:30:00Z").unwrap();
         let headers1 = sigv4_sign("POST", "/path/", "body", "KEY", "SECRET", &now);
         let headers2 = sigv4_sign("POST", "/path/", "body", "KEY", "SECRET", &now);
         assert_eq!(headers1["Authorization"], headers2["Authorization"]);
@@ -755,9 +753,7 @@ mod tests {
 
     #[test]
     fn test_sigv4_sign_different_bodies_produce_different_signatures() {
-        let now = chrono::DateTime::parse_from_rfc3339("2024-06-01T08:30:00Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc);
+        let now = crate::time::Timestamp::parse_from_rfc3339("2024-06-01T08:30:00Z").unwrap();
         let h1 = sigv4_sign("POST", "/path/", "body-a", "KEY", "SECRET", &now);
         let h2 = sigv4_sign("POST", "/path/", "body-b", "KEY", "SECRET", &now);
         assert_ne!(h1["Authorization"], h2["Authorization"]);
@@ -765,9 +761,7 @@ mod tests {
 
     #[test]
     fn test_sigv4_sign_different_keys_produce_different_signatures() {
-        let now = chrono::DateTime::parse_from_rfc3339("2024-06-01T08:30:00Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc);
+        let now = crate::time::Timestamp::parse_from_rfc3339("2024-06-01T08:30:00Z").unwrap();
         let h1 = sigv4_sign("POST", "/path/", "body", "KEY1", "SECRET1", &now);
         let h2 = sigv4_sign("POST", "/path/", "body", "KEY2", "SECRET2", &now);
         assert_ne!(h1["Authorization"], h2["Authorization"]);

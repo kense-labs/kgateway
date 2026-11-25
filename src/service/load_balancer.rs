@@ -322,7 +322,7 @@ impl Backend {
             .fetch_sub(1, self.connection_ordering());
     }
 
-    #[allow(deprecated, reason = "fetch_update supports the Rust 1.88 minimum")]
+    #[allow(deprecated, reason = "fetch_update supports the Rust 1.89 minimum")]
     fn try_reserve_concurrency(&self) -> Option<bool> {
         let limit = self.concurrency_limit.load(Ordering::Acquire);
         if limit == 0 {

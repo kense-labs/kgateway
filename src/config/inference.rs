@@ -6,7 +6,7 @@ pub(crate) use validation::validate_argon2id_verifier;
 #[cfg(test)]
 mod tests;
 
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -31,7 +31,7 @@ pub const INFERENCE_TOKENIZER_REVISION: &str = "a3s.gateway.tokenizer.v1";
 #[serde(deny_unknown_fields)]
 pub struct InferenceConfig {
     /// Exclusive end of the policy validity window.
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     /// Tokenizer revision the policy was compiled against.
     ///
     /// Must equal [`INFERENCE_TOKENIZER_REVISION`]. Fail-closed on mismatch so
@@ -69,7 +69,7 @@ pub struct InferenceCredentialConfig {
     /// Positive issuance generation.
     pub generation: u64,
     /// Credential expiry evaluated by the request authorization stage.
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     /// Explicit revocation state.
     pub revoked: bool,
 }
@@ -229,8 +229,8 @@ pub struct InferenceWorkerConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution_profile_sha256: Option<String>,
     pub observation_generation: u64,
-    pub observed_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    pub observed_at: Timestamp,
+    pub expires_at: Timestamp,
     pub phases: Vec<InferencePhaseRole>,
     pub prompt_cache_capable: bool,
     pub state_transfer_capable: bool,

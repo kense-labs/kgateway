@@ -1,6 +1,6 @@
 use super::Rejection;
 use crate::response_body::ResponseBody;
-use chrono::Utc;
+use crate::time::Timestamp;
 use http::{HeaderMap, HeaderName, HeaderValue, Response, StatusCode};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -164,7 +164,7 @@ impl Session {
             return None;
         }
         let codec = self.codec?;
-        let now = Utc::now().timestamp();
+        let now = Timestamp::now().timestamp();
         let receipt = if self.initialize {
             Receipt {
                 owner: self.owner,

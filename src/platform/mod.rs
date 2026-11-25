@@ -28,9 +28,9 @@ pub use rpc::{Policy as RpcPolicy, Protocol as RpcProtocol, Tool as RpcTool};
 use crate::platform_identity::{
     BatchAuthorization, DeploymentRef, ServiceInvocation, ServiceTokenSigner, MAX_LIFETIME_SECONDS,
 };
+use crate::time::Timestamp;
 use crate::usage::UsageSpool;
 use crate::{GatewayError, Result};
-use chrono::Utc;
 use http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri};
 use jsonwebtoken::DecodingKey;
 use std::{
@@ -209,7 +209,7 @@ impl Admission {
             .get(router)
             .filter(|operation| matches_operation(operation, method, uri))
             .ok_or(Rejection::UnknownOperation)?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         if self.policy.expires_at <= now {
             return Err(Rejection::Unavailable);
         }
@@ -280,7 +280,7 @@ impl Admission {
             .verify(prefix, token, &credential.verifier_hash)
             .await?;
         if waited_for_verification {
-            let now = Utc::now();
+            let now = Timestamp::now();
             if self.policy.expires_at <= now {
                 return Err(Rejection::Unavailable);
             }
@@ -401,7 +401,7 @@ impl Authenticated<'_> {
         if !matches_operation(self.operation, method, uri) {
             return Err(Rejection::UnknownOperation);
         }
-        let now = Utc::now();
+        let now = Timestamp::now();
         if self.admission.policy.expires_at <= now || !self.admission.issuer.can_issue(now) {
             return Err(Rejection::Unavailable);
         }
@@ -589,7 +589,7 @@ impl Authenticated<'_> {
                 }
             };
         }
-        let now = Utc::now();
+        let now = Timestamp::now();
         if self.admission.policy.expires_at <= now
             || self.credential.expires_at <= now
             || !debit.active_at(now)
@@ -606,7 +606,7 @@ impl Authenticated<'_> {
             meter.reject(rejection.status());
             return Err(rejection);
         }
-        let signed_at = Utc::now();
+        let signed_at = Timestamp::now();
         let lifetime = self
             .delegation
             .as_ref()

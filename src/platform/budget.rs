@@ -1,5 +1,5 @@
 use super::revocation::{RevocationError, RevocationStatus, RevocationUpdate, Revocations};
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -24,13 +24,13 @@ pub struct Lease {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub starts_at: Option<DateTime<Utc>>,
-    pub expires_at: DateTime<Utc>,
+    pub starts_at: Option<Timestamp>,
+    pub expires_at: Timestamp,
     pub requests: u64,
 }
 
 impl Lease {
-    fn active_at(&self, now: DateTime<Utc>) -> bool {
+    fn active_at(&self, now: Timestamp) -> bool {
         self.starts_at.is_none_or(|start| start <= now) && now < self.expires_at
     }
 
@@ -51,9 +51,9 @@ impl Lease {
 #[derive(Debug)]
 pub(super) struct BudgetDebit {
     ids: Vec<Uuid>,
-    pub charged_at: DateTime<Utc>,
-    starts_at: Option<DateTime<Utc>>,
-    expires_at: DateTime<Utc>,
+    pub charged_at: Timestamp,
+    starts_at: Option<Timestamp>,
+    expires_at: Timestamp,
 }
 
 impl BudgetDebit {
@@ -64,7 +64,7 @@ impl BudgetDebit {
         }
     }
 
-    pub(super) fn active_at(&self, now: DateTime<Utc>) -> bool {
+    pub(super) fn active_at(&self, now: Timestamp) -> bool {
         self.starts_at.is_none_or(|start| start <= now) && now < self.expires_at
     }
 }
@@ -154,7 +154,11 @@ impl BudgetStore {
     pub(crate) fn revocation_status(&self) -> Option<RevocationStatus> {
         let guard = self.ledger.lock().ok()?;
         let ledger = guard.as_ref()?;
-        Some(ledger.revocations.status(ledger.gateway_id, Utc::now()))
+        Some(
+            ledger
+                .revocations
+                .status(ledger.gateway_id, Timestamp::now()),
+        )
     }
 
     pub(crate) async fn apply_revocations(
@@ -183,7 +187,9 @@ impl BudgetStore {
                 return Err(RevocationError::Unavailable);
             }
         }
-        Ok(ledger.revocations.status(ledger.gateway_id, Utc::now()))
+        Ok(ledger
+            .revocations
+            .status(ledger.gateway_id, Timestamp::now()))
     }
 
     pub(super) fn check_credential(
@@ -193,7 +199,7 @@ impl BudgetStore {
     ) -> Result<(), BudgetError> {
         let guard = self.ledger.lock().map_err(|_| BudgetError::Unavailable)?;
         let ledger = guard.as_ref().ok_or(BudgetError::Unavailable)?;
-        check_revocation(ledger, subject, generation, Utc::now())
+        check_revocation(ledger, subject, generation, Timestamp::now())
     }
 
     pub(super) async fn debit(
@@ -219,7 +225,7 @@ impl BudgetStore {
     ) -> Result<BudgetDebit, BudgetError> {
         let mut guard = self.ledger.lock().map_err(|_| BudgetError::Unavailable)?;
         let ledger = guard.as_mut().ok_or(BudgetError::Unavailable)?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         check_revocation(ledger, subject, generation, now)?;
         let active = active_leases(leases, ledger.gateway_id, now)?;
         let mut debit = BudgetDebit {
@@ -293,7 +299,7 @@ impl BudgetStore {
 fn active_leases(
     candidates: Vec<Lease>,
     gateway_id: Uuid,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Result<Vec<Lease>, BudgetError> {
     let mut required = [true, false, false];
     let mut levels = [None, None, None];
@@ -321,7 +327,7 @@ fn check_revocation(
     ledger: &Ledger,
     subject: &str,
     generation: u64,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Result<(), BudgetError> {
     if !ledger.revocations.fresh(now) {
         return Err(BudgetError::Unavailable);
@@ -373,19 +379,19 @@ mod tests {
             project: None,
             env: None,
             starts_at: None,
-            expires_at: Utc::now() + chrono::Duration::minutes(5),
+            expires_at: Timestamp::now() + crate::time::SignedDuration::from_mins(5),
             requests: 1,
         };
         let store = Arc::new(BudgetStore::open(&path, lease.gateway_id).unwrap());
         assert!(BudgetStore::open(&path, lease.gateway_id).is_err());
-        let now = Utc::now();
+        let now = Timestamp::now();
         store
             .apply_revocations(RevocationUpdate {
                 schema: super::super::REVOCATION_SCHEMA.to_string(),
                 gateway_id: lease.gateway_id,
                 sequence: 1,
                 issued_at: now,
-                valid_until: now + chrono::Duration::minutes(2),
+                valid_until: now + crate::time::SignedDuration::from_mins(2),
                 more: false,
                 changes: Vec::new(),
             })
@@ -394,7 +400,7 @@ mod tests {
         let future = Lease {
             id: Uuid::new_v4(),
             starts_at: Some(lease.expires_at),
-            expires_at: lease.expires_at + chrono::Duration::minutes(5),
+            expires_at: lease.expires_at + crate::time::SignedDuration::from_mins(5),
             ..lease.clone()
         };
         assert!(!future.active_at(now));

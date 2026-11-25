@@ -93,7 +93,7 @@ impl InferenceDispatchState {
         headers: &mut http::HeaderMap,
         access_log: Option<&mut RequestAccessLog>,
     ) -> Result<PreparedInferenceAttempt, InferenceAccessError> {
-        let now = chrono::Utc::now();
+        let now = crate::time::Timestamp::now();
         let scheduled = self.authorizer.model_uses_worker_scheduling(
             self.authenticated,
             &self.model_alias,
@@ -275,7 +275,7 @@ impl InferenceDispatchState {
         service: &str,
         target_id: uuid::Uuid,
         distributed: bool,
-        now: chrono::DateTime<chrono::Utc>,
+        now: crate::time::Timestamp,
     ) -> bool {
         let Some(load_balancer) = state.service_registry.get(service) else {
             return false;
@@ -312,7 +312,7 @@ impl InferenceDispatchState {
         service: &str,
         target_id: uuid::Uuid,
         cache_affinity_key: Option<&str>,
-        now: chrono::DateTime<chrono::Utc>,
+        now: crate::time::Timestamp,
     ) -> Result<SelectedBackend, InferenceAccessError> {
         let load_balancer = state
             .service_registry
@@ -351,7 +351,7 @@ impl InferenceDispatchState {
         target_id: uuid::Uuid,
         cache_affinity_key: Option<&str>,
         config: crate::config::InferenceDistributedServingConfig,
-        now: chrono::DateTime<chrono::Utc>,
+        now: crate::time::Timestamp,
     ) -> Result<SelectedBackend, InferenceAccessError> {
         let load_balancer = state
             .service_registry

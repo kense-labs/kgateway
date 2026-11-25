@@ -11,9 +11,9 @@ use crate::gateway::builders::{
 };
 use crate::observability::access_log::{AccessLog, AccessLogEntry};
 use crate::observability::metrics::GatewayMetrics;
+use crate::time::{SignedDuration, Timestamp};
 use argon2::password_hash::{PasswordHasher, SaltString};
 use argon2::Argon2;
-use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -40,7 +40,7 @@ fn verifier(secret: &str) -> String {
 pub(super) fn inference_config(
     backend: SocketAddr,
     key: &str,
-    policy_expires_at: DateTime<Utc>,
+    policy_expires_at: Timestamp,
 ) -> GatewayConfig {
     let gateway_id = Uuid::new_v4();
     let environment_id = Uuid::new_v4();
@@ -150,7 +150,7 @@ pub(super) fn inference_config(
                 prefix: KEY_PREFIX.into(),
                 verifier_hash: verifier(key),
                 generation: 3,
-                expires_at: Utc::now() + ChronoDuration::hours(1),
+                expires_at: Timestamp::now() + SignedDuration::from_hours(1),
                 revoked: false,
             },
         )]),
@@ -516,7 +516,11 @@ pub(super) async fn spawn_streaming_backend() -> (
 async fn managed_inference_authenticates_before_body_and_strips_authorization() {
     let key = inference_key('a');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     config.validate().unwrap();
     let (address, shutdown_tx, handle) = start_test_entrypoint(gateway_state(&config)).await;
     let client = reqwest::Client::new();
@@ -566,7 +570,11 @@ async fn managed_inference_samples_mirror_after_resolving_target_service() {
     let key = inference_key('a');
     let (primary, primary_request) = spawn_capturing_backend().await;
     let (shadow, shadow_request) = spawn_capturing_backend().await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let mut shadow_service = config.services["model-service"].clone();
     shadow_service.load_balancer.servers[0].url = format!("http://{shadow}");
     shadow_service.mirror = None;
@@ -621,7 +629,11 @@ async fn managed_inference_samples_mirror_after_resolving_target_service() {
 async fn managed_inference_returns_only_granted_models_without_an_upstream() {
     let key = inference_key('a');
     let backend = SocketAddr::from(([127, 0, 0, 1], 9));
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (address, shutdown_tx, handle) = start_test_entrypoint(gateway_state(&config)).await;
 
     let response = reqwest::Client::new()
@@ -672,7 +684,11 @@ async fn response_middleware_error_fails_closed_on_native_models_listener_withou
 
     let key = inference_key('n');
     let backend = SocketAddr::from(([127, 0, 0, 1], 9));
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     config
         .routers
         .get_mut("test-router")
@@ -714,7 +730,11 @@ async fn response_middleware_error_fails_closed_on_native_models_listener_withou
 async fn managed_inference_denies_ungranted_endpoints_and_models() {
     let key = inference_key('a');
     let backend = SocketAddr::from(([127, 0, 0, 1], 9));
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (address, shutdown_tx, handle) = start_test_entrypoint(gateway_state(&config)).await;
     let client = reqwest::Client::new();
 
@@ -763,7 +783,11 @@ async fn managed_inference_denies_ungranted_endpoints_and_models() {
 async fn credential_successor_runtime_revokes_prior_key_without_upstream() {
     let key = inference_key('s');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let runtime = GatewayRuntime::new(gateway_state(&config));
     let (address, shutdown_tx, handle) = start_test_runtime(runtime.clone()).await;
 
@@ -819,7 +843,11 @@ async fn credential_generation_bump_invalidates_prior_authenticated_generation()
     let key = inference_key('g');
     let rotated = inference_key('h');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let runtime = GatewayRuntime::new(gateway_state(&config));
     let (address, shutdown_tx, handle) = start_test_runtime(runtime.clone()).await;
 
@@ -888,7 +916,11 @@ async fn credential_generation_bump_invalidates_prior_authenticated_generation()
 async fn grant_successor_runtime_denies_prior_model_without_upstream() {
     let key = inference_key('r');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let runtime = GatewayRuntime::new(gateway_state(&config));
     let (address, shutdown_tx, handle) = start_test_runtime(runtime.clone()).await;
 
@@ -965,7 +997,7 @@ async fn managed_snapshot_apply_grant_successor_denies_withdrawn_model_without_u
 
     let key = inference_key('s');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(backend, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     let gateway_id = first.managed.gateway_id.expect("managed gateway id");
@@ -1017,7 +1049,7 @@ async fn managed_snapshot_apply_grant_successor_denies_withdrawn_model_without_u
         })
     };
 
-    let issued_at = Utc::now();
+    let issued_at = Timestamp::now();
     let first_snapshot = ManagedSnapshot::new(
         gateway_id,
         1,
@@ -1034,13 +1066,13 @@ async fn managed_snapshot_apply_grant_successor_denies_withdrawn_model_without_u
             .ready
     );
 
-    let successor_expires = Utc::now() + ChronoDuration::hours(1);
+    let successor_expires = Timestamp::now() + SignedDuration::from_hours(1);
     successor.inference.as_mut().unwrap().expires_at = successor_expires;
     let successor_snapshot = ManagedSnapshot::new(
         gateway_id,
         2,
         Some(1),
-        Utc::now(),
+        Timestamp::now(),
         successor_expires,
         render_inference_snapshot_acl(&successor),
     );
@@ -1094,7 +1126,7 @@ async fn managed_snapshot_apply_credential_successor_revokes_prior_key_without_u
 
     let key = inference_key('v');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(backend, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     let gateway_id = first.managed.gateway_id.expect("managed gateway id");
@@ -1147,7 +1179,7 @@ async fn managed_snapshot_apply_credential_successor_revokes_prior_key_without_u
         gateway_id,
         1,
         None,
-        Utc::now(),
+        Timestamp::now(),
         snapshot_expires,
         render_inference_snapshot_acl(&first),
     );
@@ -1159,13 +1191,13 @@ async fn managed_snapshot_apply_credential_successor_revokes_prior_key_without_u
             .ready
     );
 
-    let successor_expires = Utc::now() + ChronoDuration::hours(1);
+    let successor_expires = Timestamp::now() + SignedDuration::from_hours(1);
     revoked.inference.as_mut().unwrap().expires_at = successor_expires;
     let successor_snapshot = ManagedSnapshot::new(
         gateway_id,
         2,
         Some(1),
-        Utc::now(),
+        Timestamp::now(),
         successor_expires,
         render_inference_snapshot_acl(&revoked),
     );
@@ -1222,7 +1254,7 @@ async fn managed_snapshot_apply_credential_generation_bump_invalidates_prior_bea
     let key = inference_key('g');
     let rotated = inference_key('h');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(backend, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     let gateway_id = first.managed.gateway_id.expect("managed gateway id");
@@ -1279,7 +1311,7 @@ async fn managed_snapshot_apply_credential_generation_bump_invalidates_prior_bea
         gateway_id,
         1,
         None,
-        Utc::now(),
+        Timestamp::now(),
         snapshot_expires,
         render_inference_snapshot_acl(&first),
     );
@@ -1291,13 +1323,13 @@ async fn managed_snapshot_apply_credential_generation_bump_invalidates_prior_bea
             .ready
     );
 
-    let successor_expires = Utc::now() + ChronoDuration::hours(1);
+    let successor_expires = Timestamp::now() + SignedDuration::from_hours(1);
     bumped.inference.as_mut().unwrap().expires_at = successor_expires;
     let successor_snapshot = ManagedSnapshot::new(
         gateway_id,
         2,
         Some(1),
-        Utc::now(),
+        Timestamp::now(),
         successor_expires,
         render_inference_snapshot_acl(&bumped),
     );
@@ -1349,7 +1381,7 @@ async fn managed_snapshot_apply_unknown_tokenizer_successor_retains_prior_routin
 
     let key = inference_key('k');
     let (backend, upstream_hits) = spawn_multi_ok_backend(2).await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(backend, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     first.validate().unwrap();
@@ -1392,7 +1424,14 @@ async fn managed_snapshot_apply_unknown_tokenizer_successor_retains_prior_routin
 
     let applied = store
         .apply(
-            ManagedSnapshot::new(gateway_id, 1, None, Utc::now(), snapshot_expires, first_acl),
+            ManagedSnapshot::new(
+                gateway_id,
+                1,
+                None,
+                Timestamp::now(),
+                snapshot_expires,
+                first_acl,
+            ),
             Some(&callback),
         )
         .await;
@@ -1414,7 +1453,7 @@ async fn managed_snapshot_apply_unknown_tokenizer_successor_retains_prior_routin
     let mut bad_tokenizer = first.clone();
     bad_tokenizer.inference.as_mut().unwrap().tokenizer_revision =
         "a3s.gateway.tokenizer.v0".into();
-    let bad_expires = Utc::now() + ChronoDuration::hours(1);
+    let bad_expires = Timestamp::now() + SignedDuration::from_hours(1);
     bad_tokenizer.inference.as_mut().unwrap().expires_at = bad_expires;
     let rejected = store
         .apply(
@@ -1422,7 +1461,7 @@ async fn managed_snapshot_apply_unknown_tokenizer_successor_retains_prior_routin
                 gateway_id,
                 2,
                 Some(1),
-                Utc::now(),
+                Timestamp::now(),
                 bad_expires,
                 render_inference_snapshot_acl(&bad_tokenizer),
             ),
@@ -1441,7 +1480,7 @@ async fn managed_snapshot_apply_unknown_tokenizer_successor_retains_prior_routin
         rejected.status.reason
     );
     assert_eq!(reload_calls.load(Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 
     let retained = reqwest::Client::new()
         .post(format!("http://{address}/v1/chat/completions"))
@@ -1472,7 +1511,7 @@ async fn managed_snapshot_apply_stale_cas_successor_retains_prior_routing_on_lis
 
     let key = inference_key('c');
     let (backend, upstream_hits) = spawn_multi_ok_backend(2).await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(backend, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     first.validate().unwrap();
@@ -1515,7 +1554,14 @@ async fn managed_snapshot_apply_stale_cas_successor_retains_prior_routing_on_lis
 
     let applied = store
         .apply(
-            ManagedSnapshot::new(gateway_id, 1, None, Utc::now(), snapshot_expires, first_acl),
+            ManagedSnapshot::new(
+                gateway_id,
+                1,
+                None,
+                Timestamp::now(),
+                snapshot_expires,
+                first_acl,
+            ),
             Some(&callback),
         )
         .await;
@@ -1543,7 +1589,7 @@ async fn managed_snapshot_apply_stale_cas_successor_retains_prior_routing_on_lis
             route.grants.clear();
         }
     }
-    let stale_expires = Utc::now() + ChronoDuration::hours(1);
+    let stale_expires = Timestamp::now() + SignedDuration::from_hours(1);
     revoked.inference.as_mut().unwrap().expires_at = stale_expires;
     let rejected = store
         .apply(
@@ -1551,7 +1597,7 @@ async fn managed_snapshot_apply_stale_cas_successor_retains_prior_routing_on_lis
                 gateway_id,
                 3,
                 Some(2),
-                Utc::now(),
+                Timestamp::now(),
                 stale_expires,
                 render_inference_snapshot_acl(&revoked),
             ),
@@ -1570,7 +1616,7 @@ async fn managed_snapshot_apply_stale_cas_successor_retains_prior_routing_on_lis
         rejected.status.reason
     );
     assert_eq!(reload_calls.load(Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 
     let retained = reqwest::Client::new()
         .post(format!("http://{address}/v1/chat/completions"))
@@ -1886,7 +1932,11 @@ inference {{
 async fn managed_inference_policy_expiry_fails_closed_at_request_time() {
     let key = inference_key('a');
     let backend = SocketAddr::from(([127, 0, 0, 1], 9));
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::milliseconds(50));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_millis(50),
+    );
     let (address, shutdown_tx, handle) = start_test_entrypoint(gateway_state(&config)).await;
     tokio::time::sleep(Duration::from_millis(75)).await;
 
@@ -1911,7 +1961,11 @@ async fn managed_inference_revoked_or_expired_credentials_fail_closed_without_up
     let (backend, captured_request) = spawn_capturing_backend().await;
 
     for revoke in [true, false] {
-        let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+        let mut config = inference_config(
+            backend,
+            &key,
+            Timestamp::now() + SignedDuration::from_hours(1),
+        );
         let credential = config
             .inference
             .as_mut()
@@ -1923,7 +1977,7 @@ async fn managed_inference_revoked_or_expired_credentials_fail_closed_without_up
         if revoke {
             credential.revoked = true;
         } else {
-            credential.expires_at = Utc::now() - ChronoDuration::seconds(1);
+            credential.expires_at = Timestamp::now() - SignedDuration::from_secs(1);
         }
         let (address, shutdown_tx, handle) = start_test_entrypoint(gateway_state(&config)).await;
         let response = reqwest::Client::new()
@@ -1952,7 +2006,7 @@ async fn managed_inference_revoked_or_expired_credentials_fail_closed_without_up
 async fn managed_inference_rechecks_policy_expiry_after_body_collection() {
     let key = inference_key('a');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let policy_expires_at = Utc::now() + ChronoDuration::seconds(5);
+    let policy_expires_at = Timestamp::now() + SignedDuration::from_secs(5);
     let config = inference_config(backend, &key, policy_expires_at);
     let (address, shutdown_tx, handle) = start_test_entrypoint(gateway_state(&config)).await;
 
@@ -1972,9 +2026,7 @@ async fn managed_inference_rechecks_policy_expiry_after_body_collection() {
     );
     stream.write_all(headers.as_bytes()).await.unwrap();
 
-    let until_expiry = (policy_expires_at - Utc::now())
-        .to_std()
-        .unwrap_or_default();
+    let until_expiry = Duration::try_from(policy_expires_at - Timestamp::now()).unwrap_or_default();
     tokio::time::sleep(until_expiry + Duration::from_millis(100)).await;
     stream.write_all(body.as_bytes()).await.unwrap();
 
@@ -1999,7 +2051,11 @@ async fn managed_inference_rechecks_policy_expiry_after_body_collection() {
 async fn managed_inference_router_rejects_near_miss_paths() {
     let key = inference_key('a');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (address, shutdown_tx, handle) = start_test_entrypoint(gateway_state(&config)).await;
 
     let response = reqwest::Client::new()
@@ -2024,7 +2080,11 @@ async fn managed_inference_router_rejects_near_miss_paths() {
 async fn managed_inference_models_enforces_request_burst_with_retry_after() {
     let key = inference_key('a');
     let backend = SocketAddr::from(([127, 0, 0, 1], 9));
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -2066,7 +2126,11 @@ async fn managed_inference_models_enforces_request_burst_with_retry_after() {
 async fn managed_inference_enforces_tokens_per_minute_reservation() {
     let key = inference_key('t');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -2115,7 +2179,11 @@ async fn managed_inference_enforces_tokens_per_minute_reservation() {
 async fn rejected_inference_requests_do_not_consume_request_allowance() {
     let key = inference_key('a');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -2200,7 +2268,11 @@ async fn rejected_inference_requests_do_not_consume_request_allowance() {
 async fn snapshot_refresh_preserves_active_inference_concurrency() {
     let key = inference_key('a');
     let (backend, request_started, release_request) = spawn_blocking_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -2245,7 +2317,7 @@ async fn snapshot_refresh_preserves_active_inference_concurrency() {
         .as_deref()
         .expect("inference authorizer");
     let mut refreshed_config = config.clone();
-    refreshed_config.inference.as_mut().unwrap().expires_at += ChronoDuration::minutes(5);
+    refreshed_config.inference.as_mut().unwrap().expires_at += SignedDuration::from_mins(5);
     runtime.replace(gateway_state_with_previous(
         &refreshed_config,
         Some(previous),
@@ -2282,7 +2354,11 @@ async fn snapshot_refresh_preserves_active_inference_concurrency() {
 async fn openai_stream_field_selects_sse_without_an_accept_header() {
     let key = inference_key('a');
     let (backend, stream_started, upstream_disconnected) = spawn_streaming_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -2343,7 +2419,11 @@ async fn openai_stream_field_selects_sse_without_an_accept_header() {
 async fn client_abort_before_upstream_response_releases_concurrency_permit() {
     let key = inference_key('c');
     let (backend, request_started, release_request) = spawn_blocking_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -2429,7 +2509,11 @@ async fn managed_sse_client_drop_after_headers_releases_concurrency_permit() {
 
     let key = inference_key('s');
     let (backend, stream_started, upstream_disconnected) = spawn_streaming_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {

@@ -8,7 +8,7 @@ mod persistence;
 
 use crate::config::{GatewayConfig, OperatingMode};
 use crate::error::{GatewayError, Result};
-use chrono::{DateTime, Duration, Utc};
+use crate::time::{SignedDuration as Duration, Timestamp};
 use persistence::{
     JournalPhase, ManagedSnapshotJournal, ManagedSnapshotPersistence, PersistenceError,
 };
@@ -55,9 +55,9 @@ pub struct ManagedSnapshot {
     /// SHA-256 digest of the exact UTF-8 ACL bytes.
     pub snapshot_digest: String,
     /// Beginning of the bounded snapshot validity interval.
-    pub issued_at: DateTime<Utc>,
+    pub issued_at: Timestamp,
     /// Exclusive end of the bounded snapshot validity interval.
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     /// Complete Gateway ACL configuration.
     pub acl: String,
 }
@@ -84,8 +84,8 @@ impl ManagedSnapshot {
         gateway_id: Uuid,
         revision: u64,
         expected_revision: Option<u64>,
-        issued_at: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
+        issued_at: Timestamp,
+        expires_at: Timestamp,
         acl: impl Into<String>,
     ) -> Self {
         let acl = acl.into();
@@ -204,9 +204,9 @@ pub struct AppliedManagedSnapshot {
     pub revision: u64,
     pub expected_revision: Option<u64>,
     pub snapshot_digest: String,
-    pub issued_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    pub applied_at: DateTime<Utc>,
+    pub issued_at: Timestamp,
+    pub expires_at: Timestamp,
+    pub applied_at: Timestamp,
 }
 
 impl AppliedManagedSnapshot {
@@ -235,7 +235,7 @@ pub struct RejectedManagedSnapshot {
     pub gateway_id: Uuid,
     pub revision: u64,
     pub snapshot_digest: String,
-    pub rejected_at: DateTime<Utc>,
+    pub rejected_at: Timestamp,
     pub reason: String,
 }
 
@@ -331,7 +331,7 @@ impl ManagedSnapshotStore {
 
     pub(crate) async fn load_recovery(
         &self,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Option<ManagedSnapshotRecovery>> {
         let Some(persistence) = &self.persistence else {
             return Ok(None);
@@ -351,7 +351,7 @@ impl ManagedSnapshotStore {
 
     /// Fail closed when an on-disk journal cannot activate (validate ≡ start),
     /// including parent directory create/write readiness for a missing journal.
-    pub(crate) fn validate_recovery_for_activation(&self, now: DateTime<Utc>) -> Result<()> {
+    pub(crate) fn validate_recovery_for_activation(&self, now: Timestamp) -> Result<()> {
         let Some(persistence) = &self.persistence else {
             return Ok(());
         };
@@ -379,7 +379,7 @@ impl ManagedSnapshotStore {
     fn recover_from_journal(
         &self,
         journal: ManagedSnapshotJournal,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<ManagedSnapshotRecovery> {
         journal.validate_shape().map_err(|reason| {
             GatewayError::Config(format!("Invalid managed snapshot journal: {reason}"))
@@ -399,10 +399,9 @@ impl ManagedSnapshotStore {
         validate_snapshot_envelope(&journal.snapshot, now).map_err(|reason| {
             GatewayError::Config(format!("Invalid managed snapshot journal: {reason}"))
         })?;
-        if journal
-            .applied_at
-            .is_some_and(|applied_at| applied_at > now + Duration::minutes(MAX_CLOCK_SKEW_MINUTES))
-        {
+        if journal.applied_at.is_some_and(|applied_at| {
+            applied_at > now + Duration::from_mins(MAX_CLOCK_SKEW_MINUTES)
+        }) {
             return Err(GatewayError::Config(
                 "Invalid managed snapshot journal: applied_at exceeds the clock-skew allowance"
                     .to_string(),
@@ -430,7 +429,7 @@ impl ManagedSnapshotStore {
     /// An absent applied snapshot preserves standalone/bootstrap behaviour.
     /// Once a snapshot has been applied, its exclusive expiry is a data-plane
     /// admission boundary as well as a status-reporting field.
-    pub(crate) fn allows_traffic(&self, now: DateTime<Utc>) -> bool {
+    pub(crate) fn allows_traffic(&self, now: Timestamp) -> bool {
         self.read_state()
             .applied
             .as_ref()
@@ -440,7 +439,7 @@ impl ManagedSnapshotStore {
     pub(crate) async fn complete_recovery(
         &self,
         recovery: ManagedSnapshotRecovery,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<()> {
         let ManagedSnapshotRecovery { journal, .. } = recovery;
         let applied_at = journal.applied_at.unwrap_or(now);
@@ -468,7 +467,7 @@ impl ManagedSnapshotStore {
         reload: Option<&ManagedSnapshotReloadCallback>,
     ) -> ManagedSnapshotApplyResult {
         let _apply = self.apply_lock.lock().await;
-        let now = Utc::now();
+        let now = Timestamp::now();
         let requested = snapshot.identity();
 
         if let Err(reason) = validate_snapshot_envelope(&snapshot, now) {
@@ -584,9 +583,14 @@ impl ManagedSnapshotStore {
                     persistence.path().display()
                 );
                 if error.published() {
-                    return self.recovery_required(requested, reason, Utc::now());
+                    return self.recovery_required(requested, reason, Timestamp::now());
                 }
-                return self.reject(requested, reason, RejectionKind::Unavailable, Utc::now());
+                return self.reject(
+                    requested,
+                    reason,
+                    RejectionKind::Unavailable,
+                    Timestamp::now(),
+                );
             }
         }
 
@@ -600,14 +604,19 @@ impl ManagedSnapshotStore {
                         format!(
                             "{reload_reason}; durable journal rollback failed: {restore_error}"
                         ),
-                        Utc::now(),
+                        Timestamp::now(),
                     );
                 }
-                return self.reject(requested, reload_reason, RejectionKind::Invalid, Utc::now());
+                return self.reject(
+                    requested,
+                    reload_reason,
+                    RejectionKind::Invalid,
+                    Timestamp::now(),
+                );
             }
         };
 
-        let applied_at = Utc::now();
+        let applied_at = Timestamp::now();
         if let Some(persistence) = &self.persistence {
             let applied = ManagedSnapshotJournal::applied(snapshot.clone(), applied_at);
             if let Err(commit_error) = persistence.write(&applied).await {
@@ -620,9 +629,14 @@ impl ManagedSnapshotStore {
                     restore_result.as_ref().err(),
                 );
                 if rollback_result.is_err() || restore_result.is_err() {
-                    return self.recovery_required(requested, reason, Utc::now());
+                    return self.recovery_required(requested, reason, Timestamp::now());
                 }
-                return self.reject(requested, reason, RejectionKind::Unavailable, Utc::now());
+                return self.reject(
+                    requested,
+                    reason,
+                    RejectionKind::Unavailable,
+                    Timestamp::now(),
+                );
             }
         }
         self.set_applied(snapshot, applied_at);
@@ -636,7 +650,7 @@ impl ManagedSnapshotStore {
     pub(crate) fn status(
         &self,
         requested: Option<ManagedSnapshotIdentity>,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> ManagedSnapshotStatus {
         let state = self.read_state();
         let applied = state.applied.clone();
@@ -740,7 +754,7 @@ impl ManagedSnapshotStore {
         requested: ManagedSnapshotIdentity,
         reason: impl AsRef<str>,
         kind: RejectionKind,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> ManagedSnapshotApplyResult {
         let reason = sanitize_reason(reason.as_ref());
         {
@@ -768,7 +782,7 @@ impl ManagedSnapshotStore {
         &self,
         requested: ManagedSnapshotIdentity,
         reason: impl AsRef<str>,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> ManagedSnapshotApplyResult {
         let reason = sanitize_reason(reason.as_ref());
         {
@@ -792,7 +806,7 @@ impl ManagedSnapshotStore {
         }
     }
 
-    fn set_applied(&self, snapshot: ManagedSnapshot, applied_at: DateTime<Utc>) {
+    fn set_applied(&self, snapshot: ManagedSnapshot, applied_at: Timestamp) {
         let applied = AppliedManagedSnapshot {
             gateway_id: snapshot.gateway_id,
             revision: snapshot.revision,
@@ -875,7 +889,7 @@ fn durable_commit_failure_reason(
 
 fn validate_snapshot_envelope(
     snapshot: &ManagedSnapshot,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> std::result::Result<(), String> {
     if !matches!(
         snapshot.schema.as_str(),
@@ -911,12 +925,12 @@ fn validate_snapshot_envelope(
     if snapshot.expires_at <= snapshot.issued_at {
         return Err("Managed snapshot expiry must follow its issue time".to_string());
     }
-    if snapshot.expires_at - snapshot.issued_at > Duration::hours(MAX_VALIDITY_HOURS) {
+    if snapshot.expires_at - snapshot.issued_at > Duration::from_hours(MAX_VALIDITY_HOURS) {
         return Err(format!(
             "Managed snapshot validity must not exceed {MAX_VALIDITY_HOURS} hours"
         ));
     }
-    if snapshot.issued_at > now + Duration::minutes(MAX_CLOCK_SKEW_MINUTES) {
+    if snapshot.issued_at > now + Duration::from_mins(MAX_CLOCK_SKEW_MINUTES) {
         return Err(format!(
             "Managed snapshot issue time exceeds the {MAX_CLOCK_SKEW_MINUTES}-minute clock-skew allowance"
         ));
@@ -992,7 +1006,7 @@ fn sanitize_reason(reason: &str) -> String {
 pub(crate) fn validate_managed_snapshot_activation(config: &GatewayConfig) -> Result<()> {
     let store =
         ManagedSnapshotStore::new(config.managed.gateway_id, config.managed.state_file.clone());
-    store.validate_recovery_for_activation(Utc::now())
+    store.validate_recovery_for_activation(Timestamp::now())
 }
 
 #[cfg(test)]

@@ -1,8 +1,8 @@
 use super::budget::Lease;
 use crate::config::{GatewayConfig, OperatingMode, Protocol};
 use crate::platform_identity::{valid_identifier, DeploymentRef, MIN_LIFETIME_SECONDS};
+use crate::time::Timestamp;
 use crate::{GatewayError, Result};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -29,7 +29,7 @@ pub struct PlatformBootstrap {
 #[serde(deny_unknown_fields)]
 pub struct PlatformPolicy {
     pub schema: String,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     pub signer: Signer,
     pub credentials: BTreeMap<String, Credential>,
     pub routes: BTreeMap<String, Operation>,
@@ -54,7 +54,7 @@ pub const POLICY_SCHEMA: &str = "kgateway.platform-policy.v1";
 pub struct Signer {
     pub issuer: String,
     pub key_id: String,
-    pub authorized_until: DateTime<Utc>,
+    pub authorized_until: Timestamp,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -63,7 +63,7 @@ pub struct Credential {
     pub subject: String,
     pub generation: u64,
     pub verifier_hash: String,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     pub tenant: String,
     pub project: String,
     pub env: String,
@@ -628,8 +628,8 @@ pub(super) fn valid_urn(value: &str) -> bool {
 impl PlatformPolicy {
     pub(crate) fn validate_expiry(
         &self,
-        issued_at: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
+        issued_at: Timestamp,
+        expires_at: Timestamp,
     ) -> std::result::Result<(), String> {
         if self.expires_at <= issued_at
             || self.expires_at > expires_at

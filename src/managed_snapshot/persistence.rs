@@ -1,7 +1,7 @@
 //! Durable write-ahead journal for managed snapshots.
 
 use super::ManagedSnapshot;
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -28,7 +28,7 @@ pub(super) struct ManagedSnapshotJournal {
     pub phase: JournalPhase,
     pub snapshot: ManagedSnapshot,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub applied_at: Option<DateTime<Utc>>,
+    pub applied_at: Option<Timestamp>,
 }
 
 impl ManagedSnapshotJournal {
@@ -42,7 +42,7 @@ impl ManagedSnapshotJournal {
         }
     }
 
-    pub(super) fn applied(snapshot: ManagedSnapshot, applied_at: DateTime<Utc>) -> Self {
+    pub(super) fn applied(snapshot: ManagedSnapshot, applied_at: Timestamp) -> Self {
         Self {
             schema: MANAGED_SNAPSHOT_JOURNAL_SCHEMA.to_string(),
             gateway_id: snapshot.gateway_id,

@@ -9,7 +9,7 @@ use super::inference_tests::{
     stop_test_entrypoint,
 };
 use super::GatewayRuntime;
-use chrono::{Duration as ChronoDuration, Utc};
+use crate::time::{SignedDuration, Timestamp};
 use futures_util::StreamExt;
 use http::StatusCode;
 use serde_json::Value;
@@ -20,8 +20,11 @@ async fn rolling_snapshot_moves_new_requests_to_distributed_workers_without_rebi
 {
     let key = inference_key('e');
     let (aggregated, aggregated_started, release_aggregated) = spawn_blocking_backend().await;
-    let mut aggregated_config =
-        inference_config(aggregated, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut aggregated_config = inference_config(
+        aggregated,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_worker_scheduling(
         &mut aggregated_config,
         &[(aggregated, "power-aggregated-v1", 0, 0)],
@@ -120,8 +123,11 @@ async fn rolling_snapshot_drains_inflight_aggregated_sse_while_new_requests_use_
     let key = inference_key('f');
     let (aggregated, aggregated_started, release_aggregated) =
         spawn_holding_streaming_backend().await;
-    let mut aggregated_config =
-        inference_config(aggregated, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut aggregated_config = inference_config(
+        aggregated,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_worker_scheduling(
         &mut aggregated_config,
         &[(aggregated, "power-aggregated-v1", 0, 0)],
@@ -242,7 +248,11 @@ async fn rolling_snapshot_drains_inflight_pd_sse_while_new_requests_use_successo
     let key = inference_key('p');
     let (prefill_a, decode_a, stream_started, release_a) =
         spawn_releasable_holding_power_pair().await;
-    let mut snapshot_a = inference_config(decode_a, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut snapshot_a = inference_config(
+        decode_a,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut snapshot_a, prefill_a, decode_a);
     snapshot_a
         .services
@@ -352,7 +362,11 @@ async fn rolling_snapshot_drains_inflight_pd_json_while_new_requests_use_success
     let key = inference_key('j');
     let (prefill_a, decode_a, decode_started, release_a) =
         spawn_releasable_holding_power_pair().await;
-    let mut snapshot_a = inference_config(decode_a, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut snapshot_a = inference_config(
+        decode_a,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut snapshot_a, prefill_a, decode_a);
     snapshot_a
         .services

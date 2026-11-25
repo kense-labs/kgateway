@@ -176,7 +176,7 @@ impl InferenceGrantAdmissionGuard {
 }
 
 impl Drop for InferenceGrantAdmissionGuard {
-    #[allow(deprecated, reason = "fetch_update supports the Rust 1.88 minimum")]
+    #[allow(deprecated, reason = "fetch_update supports the Rust 1.89 minimum")]
     fn drop(&mut self) {
         let result =
             self.state
@@ -332,7 +332,7 @@ mod tests {
         InferenceCredentialConfig, InferenceEndpoint, InferenceGrantConfig, InferenceModelConfig,
         InferenceRouteConfig, InferenceTargetConfig,
     };
-    use chrono::Utc;
+    use crate::time::Timestamp;
 
     fn limits(
         max_concurrent_requests: u64,
@@ -372,7 +372,7 @@ mod tests {
             credential_generation: 3,
         };
         let policy = InferenceConfig {
-            expires_at: Utc::now() + chrono::Duration::hours(1),
+            expires_at: Timestamp::now() + crate::time::SignedDuration::from_hours(1),
             tokenizer_revision: crate::config::INFERENCE_TOKENIZER_REVISION.into(),
             credentials: HashMap::from([(
                 credential_id,
@@ -383,7 +383,7 @@ mod tests {
                     prefix: "a3s_inf_abc12345".into(),
                     verifier_hash: String::new(),
                     generation: 3,
-                    expires_at: Utc::now() + chrono::Duration::hours(1),
+                    expires_at: Timestamp::now() + crate::time::SignedDuration::from_hours(1),
                     revoked: false,
                 },
             )]),
@@ -581,7 +581,7 @@ mod tests {
         let previous = InferenceLimitStore::new(&policy, None);
         let active = previous.try_admit(identity, 0).unwrap();
 
-        policy.expires_at += chrono::Duration::minutes(5);
+        policy.expires_at += crate::time::SignedDuration::from_mins(5);
         let refreshed = InferenceLimitStore::new(&policy, Some(&previous));
         assert!(matches!(
             refreshed.try_admit(identity, 0),
@@ -601,7 +601,7 @@ mod tests {
         let previous = InferenceLimitStore::new(&policy, None);
         let active = previous.try_admit(identity, 0).unwrap();
 
-        policy.expires_at += chrono::Duration::minutes(5);
+        policy.expires_at += crate::time::SignedDuration::from_mins(5);
         let refreshed = InferenceLimitStore::new(&policy, Some(&previous));
         assert!(matches!(
             refreshed.try_admit(identity, 0),

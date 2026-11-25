@@ -89,8 +89,8 @@ inference {{
 }
 
 fn scheduled_acl() -> String {
-    let observed_at = (Utc::now() - chrono::Duration::seconds(1)).to_rfc3339();
-    let expires_at = (Utc::now() + chrono::Duration::seconds(14)).to_rfc3339();
+    let observed_at = (Timestamp::now() - crate::time::SignedDuration::from_secs(1)).to_rfc3339();
+    let expires_at = (Timestamp::now() + crate::time::SignedDuration::from_secs(14)).to_rfc3339();
     valid_acl()
         .replace(
             r#"servers = [{ url = "http://127.0.0.1:8000" }]"#,
@@ -150,8 +150,8 @@ fn scheduled_acl() -> String {
 }
 
 fn distributed_acl() -> String {
-    let observed_at = (Utc::now() - chrono::Duration::seconds(1)).to_rfc3339();
-    let expires_at = (Utc::now() + chrono::Duration::seconds(14)).to_rfc3339();
+    let observed_at = (Timestamp::now() - crate::time::SignedDuration::from_secs(1)).to_rfc3339();
+    let expires_at = (Timestamp::now() + crate::time::SignedDuration::from_secs(14)).to_rfc3339();
     valid_acl()
         .replace(
             "endpoints = [\"models\", \"chat-completions\", \"embeddings\"]",
@@ -568,7 +568,7 @@ fn rejects_stale_mismatched_or_inconsistent_worker_projections() {
         .workers
         .get_mut(WORKER_UNIT_ID)
         .unwrap()
-        .expires_at = Utc::now();
+        .expires_at = Timestamp::now();
     assert!(stale
         .validate()
         .unwrap_err()

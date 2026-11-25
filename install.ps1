@@ -233,7 +233,8 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Downloaded binary did not start"
     }
-    if ($reportedVersion -ne "$Program $Version") {
+    $expectedVersion = '^' + [regex]::Escape("$Program $Version") + '(?:\s+[0-9a-f]{7,40})?$'
+    if ($reportedVersion -cnotmatch $expectedVersion) {
         throw "Downloaded binary reported an unexpected version: $reportedVersion"
     }
 

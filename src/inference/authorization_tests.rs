@@ -32,7 +32,7 @@ fn policy(secret: &str) -> (InferenceConfig, Uuid, Uuid) {
         prefix: PREFIX.into(),
         verifier_hash: verifier(secret),
         generation: 4,
-        expires_at: Utc::now() + chrono::Duration::hours(1),
+        expires_at: Timestamp::now() + crate::time::SignedDuration::from_hours(1),
         revoked: false,
     };
     let grant = InferenceGrantConfig {
@@ -78,7 +78,7 @@ fn policy(secret: &str) -> (InferenceConfig, Uuid, Uuid) {
     };
     (
         InferenceConfig {
-            expires_at: Utc::now() + chrono::Duration::hours(1),
+            expires_at: Timestamp::now() + crate::time::SignedDuration::from_hours(1),
             tokenizer_revision: crate::config::INFERENCE_TOKENIZER_REVISION.into(),
             credentials: HashMap::from([(credential_id, credential)]),
             routes: HashMap::from([(route_id, route)]),
@@ -105,7 +105,7 @@ async fn authenticates_and_enforces_endpoint_and_model_grants() {
             "inference",
             OpenAiRequestProfile::ChatCompletions,
             &bearer(&secret),
-            Utc::now(),
+            Timestamp::now(),
         )
         .await
         .unwrap();
@@ -113,16 +113,22 @@ async fn authenticates_and_enforces_endpoint_and_model_grants() {
     assert_eq!(authenticated.credential_id, credential_id);
     assert_eq!(authenticated.route_id, route_id);
     assert!(authorizer
-        .select_target_from_priority(authenticated, "alpha", 0, Utc::now(), |_, _| true)
+        .select_target_from_priority(authenticated, "alpha", 0, Timestamp::now(), |_, _| true)
         .is_ok());
     assert_eq!(
         authorizer
-            .allowed_models(authenticated, Utc::now())
+            .allowed_models(authenticated, Timestamp::now())
             .unwrap(),
         vec!["alpha", "beta"]
     );
     assert_eq!(
-        authorizer.select_target_from_priority(authenticated, "gamma", 0, Utc::now(), |_, _| true,),
+        authorizer.select_target_from_priority(
+            authenticated,
+            "gamma",
+            0,
+            Timestamp::now(),
+            |_, _| true,
+        ),
         Err(InferenceAccessError::Denied)
     );
     assert_eq!(
@@ -135,7 +141,7 @@ async fn authenticates_and_enforces_endpoint_and_model_grants() {
                 "inference",
                 OpenAiRequestProfile::Embeddings,
                 &bearer(&secret),
-                Utc::now(),
+                Timestamp::now(),
             )
             .await,
         Err(InferenceAccessError::Denied)
@@ -182,7 +188,7 @@ async fn selects_weighted_targets_then_falls_back_by_priority() {
             "inference",
             OpenAiRequestProfile::ChatCompletions,
             &bearer(&secret),
-            Utc::now(),
+            Timestamp::now(),
         )
         .await
         .unwrap();
@@ -190,7 +196,9 @@ async fn selects_weighted_targets_then_falls_back_by_priority() {
     let selected = (0..4)
         .map(|_| {
             authorizer
-                .select_target_from_priority(authenticated, "alpha", 0, Utc::now(), |_, _| true)
+                .select_target_from_priority(authenticated, "alpha", 0, Timestamp::now(), |_, _| {
+                    true
+                })
                 .unwrap()
                 .service
         })
@@ -201,21 +209,26 @@ async fn selects_weighted_targets_then_falls_back_by_priority() {
     );
 
     let explicit_fallback = authorizer
-        .select_target_from_priority(authenticated, "alpha", 1, Utc::now(), |_, _| true)
+        .select_target_from_priority(authenticated, "alpha", 1, Timestamp::now(), |_, _| true)
         .unwrap();
     assert_eq!(explicit_fallback.priority, 1);
     assert_eq!(explicit_fallback.service, "fallback");
 
     let fallback = authorizer
-        .select_target_from_priority(authenticated, "alpha", 0, Utc::now(), |service, _| {
+        .select_target_from_priority(authenticated, "alpha", 0, Timestamp::now(), |service, _| {
             service == "fallback"
         })
         .unwrap();
     assert_eq!(fallback.service, "fallback");
     assert_eq!(fallback.upstream_model, "internal-fallback");
     assert_eq!(
-        authorizer
-            .select_target_from_priority(authenticated, "alpha", 0, Utc::now(), |_, _| false,),
+        authorizer.select_target_from_priority(
+            authenticated,
+            "alpha",
+            0,
+            Timestamp::now(),
+            |_, _| false,
+        ),
         Err(InferenceAccessError::Unavailable)
     );
 }
@@ -239,13 +252,19 @@ async fn rejects_zero_weight_runtime_state_without_panicking() {
             "inference",
             OpenAiRequestProfile::ChatCompletions,
             &bearer(&secret),
-            Utc::now(),
+            Timestamp::now(),
         )
         .await
         .unwrap();
 
     assert_eq!(
-        authorizer.select_target_from_priority(authenticated, "alpha", 0, Utc::now(), |_, _| true,),
+        authorizer.select_target_from_priority(
+            authenticated,
+            "alpha",
+            0,
+            Timestamp::now(),
+            |_, _| true,
+        ),
         Err(InferenceAccessError::Unavailable)
     );
 }
@@ -276,7 +295,7 @@ async fn rejects_missing_malformed_unknown_and_wrong_credentials() {
                     "inference",
                     OpenAiRequestProfile::ChatCompletions,
                     &headers,
-                    Utc::now(),
+                    Timestamp::now(),
                 )
                 .await,
             Err(InferenceAccessError::Unauthorized)
@@ -288,7 +307,7 @@ async fn rejects_missing_malformed_unknown_and_wrong_credentials() {
                 "inference",
                 OpenAiRequestProfile::Embeddings,
                 &bearer(&key('b')),
-                Utc::now(),
+                Timestamp::now(),
             )
             .await,
         Err(InferenceAccessError::Unauthorized)
@@ -309,19 +328,19 @@ async fn bounds_parallel_argon2_verification() {
             "inference",
             OpenAiRequestProfile::Models,
             &first,
-            Utc::now(),
+            Timestamp::now(),
         ),
         authorizer.authenticate(
             "inference",
             OpenAiRequestProfile::Models,
             &second,
-            Utc::now(),
+            Timestamp::now(),
         ),
         authorizer.authenticate(
             "inference",
             OpenAiRequestProfile::Models,
             &third,
-            Utc::now(),
+            Timestamp::now(),
         ),
     );
     let results = [first, second, third];
@@ -364,7 +383,7 @@ async fn canceled_callers_keep_argon2_permits_until_work_finishes() {
                 "inference",
                 OpenAiRequestProfile::Models,
                 &bearer(&key('b')),
-                Utc::now(),
+                Timestamp::now(),
             )
             .await
     });
@@ -375,7 +394,7 @@ async fn canceled_callers_keep_argon2_permits_until_work_finishes() {
                 "inference",
                 OpenAiRequestProfile::Models,
                 &bearer(&key('c')),
-                Utc::now(),
+                Timestamp::now(),
             )
             .await
     });
@@ -401,7 +420,7 @@ async fn canceled_callers_keep_argon2_permits_until_work_finishes() {
                 "inference",
                 OpenAiRequestProfile::Models,
                 &bearer(&key('d')),
-                Utc::now(),
+                Timestamp::now(),
             )
             .await,
         Err(InferenceAccessError::Unavailable)
@@ -432,14 +451,14 @@ async fn canceled_callers_keep_argon2_permits_until_work_finishes() {
 async fn policy_credential_and_revocation_expiry_fail_closed() {
     let secret = key('a');
     let (mut expired_policy, _, _) = policy(&secret);
-    expired_policy.expires_at = Utc::now() - chrono::Duration::seconds(1);
+    expired_policy.expires_at = Timestamp::now() - crate::time::SignedDuration::from_secs(1);
     assert_eq!(
         InferenceAuthorizer::new(&expired_policy)
             .authenticate(
                 "inference",
                 OpenAiRequestProfile::Models,
                 &bearer(&secret),
-                Utc::now(),
+                Timestamp::now(),
             )
             .await,
         Err(InferenceAccessError::Unavailable)
@@ -450,7 +469,7 @@ async fn policy_credential_and_revocation_expiry_fail_closed() {
         let credential = policy.credentials.get_mut(&credential_id).unwrap();
         credential.revoked = revoked;
         if !revoked {
-            credential.expires_at = Utc::now() - chrono::Duration::seconds(1);
+            credential.expires_at = Timestamp::now() - crate::time::SignedDuration::from_secs(1);
         }
         assert_eq!(
             InferenceAuthorizer::new(&policy)
@@ -458,7 +477,7 @@ async fn policy_credential_and_revocation_expiry_fail_closed() {
                     "inference",
                     OpenAiRequestProfile::Models,
                     &bearer(&secret),
-                    Utc::now(),
+                    Timestamp::now(),
                 )
                 .await,
             Err(InferenceAccessError::Unauthorized)
@@ -466,7 +485,7 @@ async fn policy_credential_and_revocation_expiry_fail_closed() {
     }
 
     let (mut policy, credential_id, _) = policy(&secret);
-    let expires_at = Utc::now() + chrono::Duration::minutes(1);
+    let expires_at = Timestamp::now() + crate::time::SignedDuration::from_mins(1);
     policy
         .credentials
         .get_mut(&credential_id)
@@ -478,7 +497,7 @@ async fn policy_credential_and_revocation_expiry_fail_closed() {
             "inference",
             OpenAiRequestProfile::Models,
             &bearer(&secret),
-            Utc::now(),
+            Timestamp::now(),
         )
         .await
         .unwrap();

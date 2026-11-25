@@ -211,9 +211,9 @@ impl DistributedServingOrchestrator {
         };
         let timeout = Duration::from_millis(request.execution_timeout_ms);
         let deadline = Instant::now() + timeout;
-        let chrono_timeout = chrono::Duration::from_std(timeout)
+        let chrono_timeout = crate::time::SignedDuration::try_from(timeout)
             .map_err(|_| DistributedServingError::InvalidRequest)?;
-        let expires_at = chrono::Utc::now() + chrono_timeout;
+        let expires_at = crate::time::Timestamp::now() + chrono_timeout;
         let cleanup = ExecutionCleanup::new(
             self.client.clone(),
             request.api_key_env.clone(),

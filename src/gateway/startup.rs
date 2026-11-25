@@ -372,7 +372,7 @@ impl Gateway {
         }
         let recovery = match self
             .managed_snapshots
-            .load_recovery(chrono::Utc::now())
+            .load_recovery(crate::time::Timestamp::now())
             .await
         {
             Ok(recovery) => recovery,
@@ -449,7 +449,7 @@ impl Gateway {
         if let Some(recovery) = recovery {
             if let Err(error) = self
                 .managed_snapshots
-                .complete_recovery(recovery, chrono::Utc::now())
+                .complete_recovery(recovery, crate::time::Timestamp::now())
                 .await
             {
                 for (_, handle) in new_handles {

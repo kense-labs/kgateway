@@ -2166,7 +2166,7 @@ fn summarize_trial(args: &Args, scenario: Scenario, batch: BatchResult) -> Trial
     let measured_seconds = batch.elapsed.as_secs_f64();
     TrialMetrics {
         schema_version: "a3s.gateway.ai-comparison.trial.v1",
-        generated_at: chrono::Utc::now().to_rfc3339(),
+        generated_at: kgateway::time::Timestamp::now().to_rfc3339(),
         product: args.product.clone(),
         trial: args.trial,
         target: args.target.clone(),

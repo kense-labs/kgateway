@@ -5,7 +5,7 @@ use super::inference_tests::{
 use super::GatewayState;
 use crate::inference::{ATTEMPT_ID_HEADER, REQUEST_ID_HEADER};
 use crate::observability::access_log::AccessLogEntry;
-use chrono::{Duration as ChronoDuration, Utc};
+use crate::time::{SignedDuration, Timestamp};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -93,7 +93,11 @@ async fn spawn_finite_streaming_backend() -> (
 async fn managed_dispatch_replaces_spoofed_ids_and_logs_snapshot_identity() {
     let key = inference_key('a');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     config.validate().unwrap();
 
     let policy = config.inference.as_ref().unwrap();
@@ -168,7 +172,11 @@ async fn managed_dispatch_replaces_spoofed_ids_and_logs_snapshot_identity() {
 async fn managed_models_has_a_request_id_without_an_upstream_attempt() {
     let key = inference_key('a');
     let backend = SocketAddr::from(([127, 0, 0, 1], 9));
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (state, mut log_rx) = state_with_access_log(&config);
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
 
@@ -203,7 +211,11 @@ async fn managed_models_has_a_request_id_without_an_upstream_attempt() {
 async fn authenticated_parse_error_has_request_identity_without_attempt_identity() {
     let key = inference_key('a');
     let backend = SocketAddr::from(([127, 0, 0, 1], 9));
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (state, mut log_rx) = state_with_access_log(&config);
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
 
@@ -234,7 +246,11 @@ async fn authenticated_parse_error_has_request_identity_without_attempt_identity
 async fn managed_sse_retains_request_and_attempt_identity_through_completion() {
     let key = inference_key('a');
     let (backend, captured_request, expected_body) = spawn_finite_streaming_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (state, mut log_rx) = state_with_access_log(&config);
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
 

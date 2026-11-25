@@ -1,12 +1,12 @@
 use crate::platform_identity::valid_identifier;
-use chrono::{DateTime, Duration, Utc};
+use crate::time::{SignedDuration as Duration, Timestamp};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
 
 /// Maximum period for which a replica can admit traffic without a fresh update.
-const MAX_FRESHNESS: Duration = Duration::minutes(2);
-const MAX_CLOCK_SKEW: Duration = Duration::seconds(5);
+const MAX_FRESHNESS: Duration = Duration::from_mins(2);
+const MAX_CLOCK_SKEW: Duration = Duration::from_secs(5);
 const MAX_CHANGES: usize = 1024;
 
 pub const REVOCATION_SCHEMA: &str = "kgateway.platform-revocations.v1";
@@ -17,8 +17,8 @@ pub struct RevocationUpdate {
     pub schema: String,
     pub gateway_id: Uuid,
     pub sequence: u64,
-    pub issued_at: DateTime<Utc>,
-    pub valid_until: DateTime<Utc>,
+    pub issued_at: Timestamp,
+    pub valid_until: Timestamp,
     #[serde(default)]
     pub more: bool,
     pub changes: Vec<Revocation>,
@@ -41,7 +41,7 @@ pub(super) struct Revocations {
 pub struct RevocationStatus {
     pub gateway_id: Uuid,
     pub sequence: u64,
-    pub valid_until: Option<DateTime<Utc>>,
+    pub valid_until: Option<Timestamp>,
     pub fresh: bool,
 }
 
@@ -75,7 +75,7 @@ impl Revocations {
         if seq.checked_add(1) != Some(update.sequence) {
             return Err(RevocationError::Conflict);
         }
-        let now = Utc::now();
+        let now = Timestamp::now();
         if update.valid_until <= now
             || update.valid_until <= update.issued_at
             || update.valid_until - update.issued_at > MAX_FRESHNESS
@@ -105,7 +105,7 @@ impl Revocations {
         Ok(true)
     }
 
-    pub(super) fn status(&self, gateway_id: Uuid, now: DateTime<Utc>) -> RevocationStatus {
+    pub(super) fn status(&self, gateway_id: Uuid, now: Timestamp) -> RevocationStatus {
         let valid_until = self.last.as_ref().map(|last| last.valid_until);
         RevocationStatus {
             gateway_id,
@@ -115,7 +115,7 @@ impl Revocations {
         }
     }
 
-    pub(super) fn fresh(&self, now: DateTime<Utc>) -> bool {
+    pub(super) fn fresh(&self, now: Timestamp) -> bool {
         self.last
             .as_ref()
             .is_some_and(|last| !last.more && last.valid_until > now)

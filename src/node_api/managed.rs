@@ -106,7 +106,7 @@ pub(super) fn handle_status(
     };
     let mut status = state
         .managed_snapshots
-        .status(requested, chrono::Utc::now());
+        .status(requested, crate::time::Timestamp::now());
     if *state.lifecycle_state.read().unwrap() != crate::GatewayState::Running {
         if status.ready {
             status.reason = Some("Gateway lifecycle is not running".to_string());

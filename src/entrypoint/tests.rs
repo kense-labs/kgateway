@@ -475,8 +475,8 @@ async fn managed_runtime_stops_admitting_traffic_at_snapshot_expiry() {
     let runtime = GatewayRuntime::new(state).with_managed_snapshot_store(store.clone());
     assert!(runtime.allows_traffic());
 
-    let issued_at = chrono::Utc::now();
-    let expires_at = issued_at + chrono::Duration::milliseconds(10);
+    let issued_at = crate::time::Timestamp::now();
+    let expires_at = issued_at + crate::time::SignedDuration::from_millis(10);
     let snapshot = crate::managed_snapshot::ManagedSnapshot::new(
         gateway_id,
         1,
@@ -540,8 +540,8 @@ async fn managed_snapshot_expiry_rejects_new_requests_on_the_listener_with_503()
     let client = reqwest::Client::new();
     let url = format!("http://{address}/probe");
 
-    let issued_at = chrono::Utc::now();
-    let expires_at = issued_at + chrono::Duration::milliseconds(150);
+    let issued_at = crate::time::Timestamp::now();
+    let expires_at = issued_at + crate::time::SignedDuration::from_millis(150);
     let snapshot = crate::managed_snapshot::ManagedSnapshot::new(
         gateway_id,
         1,
@@ -690,8 +690,8 @@ async fn managed_snapshot_expiry_rejects_new_tcp_connections_without_upstream() 
     .unwrap()
     .into_task();
 
-    let issued_at = chrono::Utc::now();
-    let expires_at = issued_at + chrono::Duration::milliseconds(150);
+    let issued_at = crate::time::Timestamp::now();
+    let expires_at = issued_at + crate::time::SignedDuration::from_millis(150);
     let snapshot = crate::managed_snapshot::ManagedSnapshot::new(
         gateway_id,
         1,
@@ -792,8 +792,8 @@ async fn managed_snapshot_expiry_rejects_new_udp_datagrams_without_upstream() {
     .await
     .unwrap();
 
-    let issued_at = chrono::Utc::now();
-    let expires_at = issued_at + chrono::Duration::milliseconds(150);
+    let issued_at = crate::time::Timestamp::now();
+    let expires_at = issued_at + crate::time::SignedDuration::from_millis(150);
     let snapshot = crate::managed_snapshot::ManagedSnapshot::new(
         gateway_id,
         1,

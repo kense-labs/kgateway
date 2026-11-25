@@ -12,8 +12,8 @@ use crate::config::{
     InferenceConfig, InferenceCredentialConfig, InferenceDistributedServingConfig,
     InferenceEndpoint, InferenceGrantConfig, InferenceModelConfig, InferenceRouteConfig,
 };
+use crate::time::Timestamp;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use chrono::{DateTime, Utc};
 use http::header::AUTHORIZATION;
 use http::HeaderMap;
 use sha2::{Digest, Sha256};
@@ -166,7 +166,7 @@ impl InferenceAuthorizer {
         authenticated: AuthenticatedInference,
         profile: OpenAiRequestProfile,
         correlation_id: String,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<InferenceRequestIdentity, InferenceAccessError> {
         let (route, grant) = self.grant(authenticated, now)?;
         let endpoint = endpoint(profile);
@@ -187,7 +187,7 @@ impl InferenceAuthorizer {
         router: &str,
         profile: OpenAiRequestProfile,
         headers: &HeaderMap,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<AuthenticatedInference, InferenceAccessError> {
         if self.policy.expires_at <= now {
             return Err(InferenceAccessError::Unavailable);
@@ -200,7 +200,7 @@ impl InferenceAuthorizer {
         }
 
         self.verify_token(token, credential).await?;
-        let verified_at = Utc::now();
+        let verified_at = Timestamp::now();
         if self.policy.expires_at <= verified_at {
             return Err(InferenceAccessError::Unavailable);
         }
@@ -230,7 +230,7 @@ impl InferenceAuthorizer {
     pub(crate) fn allowed_models(
         &self,
         authenticated: AuthenticatedInference,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Vec<String>, InferenceAccessError> {
         let (route, grant) = self.grant(authenticated, now)?;
         let mut models = grant
@@ -250,7 +250,7 @@ impl InferenceAuthorizer {
     pub(crate) fn admit_request(
         &self,
         authenticated: AuthenticatedInference,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<InferenceAdmissionGuard, InferenceAccessError> {
         let grant = self.admit_grant_request(authenticated, now, 0)?;
         Ok(InferenceAdmissionGuard { grant, _pool: None })
@@ -259,7 +259,7 @@ impl InferenceAuthorizer {
     fn admit_grant_request(
         &self,
         authenticated: AuthenticatedInference,
-        now: DateTime<Utc>,
+        now: Timestamp,
         reserved_tokens: u64,
     ) -> Result<InferenceGrantAdmissionGuard, InferenceAccessError> {
         let (route, grant) = self.grant(authenticated, now)?;
@@ -284,7 +284,7 @@ impl InferenceAuthorizer {
         authenticated: AuthenticatedInference,
         alias: &str,
         reserved_tokens: u64,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<InferenceAdmissionGuard, InferenceAccessError> {
         let (route, model) = self.granted_model(authenticated, alias, now)?;
         let pool = self
@@ -294,7 +294,7 @@ impl InferenceAuthorizer {
                 model_id: model.model_id,
             })
             .await?;
-        let grant = self.admit_grant_request(authenticated, Utc::now(), reserved_tokens)?;
+        let grant = self.admit_grant_request(authenticated, Timestamp::now(), reserved_tokens)?;
         Ok(InferenceAdmissionGuard { grant, _pool: pool })
     }
 
@@ -302,7 +302,7 @@ impl InferenceAuthorizer {
         &self,
         authenticated: AuthenticatedInference,
         alias: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<bool, InferenceAccessError> {
         let (_, model) = self.granted_model(authenticated, alias, now)?;
         Ok(model.scheduling.is_some())
@@ -312,7 +312,7 @@ impl InferenceAuthorizer {
         &self,
         authenticated: AuthenticatedInference,
         alias: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Option<InferenceDistributedServingConfig>, InferenceAccessError> {
         let (_, model) = self.granted_model(authenticated, alias, now)?;
         Ok(model
@@ -327,7 +327,7 @@ impl InferenceAuthorizer {
         alias: &str,
         target_id: Uuid,
         candidates: &[InferenceWorkerCandidate<'_>],
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<bool, InferenceAccessError> {
         let (_, model) = self.granted_model(authenticated, alias, now)?;
         let Some(scheduling) = &model.scheduling else {
@@ -348,7 +348,7 @@ impl InferenceAuthorizer {
         alias: &str,
         target_id: Uuid,
         candidates: &[InferenceWorkerCandidate<'_>],
-        now: DateTime<Utc>,
+        now: Timestamp,
         routing_key: &[u8],
     ) -> Result<bool, InferenceAccessError> {
         let (_, model) = self.granted_model(authenticated, alias, now)?;
@@ -423,7 +423,7 @@ impl InferenceAuthorizer {
         authenticated: AuthenticatedInference,
         alias: &str,
         minimum_priority: u32,
-        now: DateTime<Utc>,
+        now: Timestamp,
         mut service_is_available: F,
     ) -> Result<InferenceDispatchTarget, InferenceAccessError>
     where
@@ -494,7 +494,7 @@ impl InferenceAuthorizer {
         &self,
         authenticated: AuthenticatedInference,
         alias: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<(&InferenceRouteConfig, &InferenceModelConfig), InferenceAccessError> {
         let (route, grant) = self.grant(authenticated, now)?;
         if !grant.models.iter().any(|model| model == alias) {
@@ -521,7 +521,7 @@ impl InferenceAuthorizer {
     fn grant(
         &self,
         authenticated: AuthenticatedInference,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<(&InferenceRouteConfig, &InferenceGrantConfig), InferenceAccessError> {
         if self.policy.expires_at <= now {
             return Err(InferenceAccessError::Unavailable);

@@ -1,8 +1,8 @@
 #[path = "support/node_auth.rs"]
 mod node_auth;
 
-use chrono::{Duration, Utc};
 use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+use kgateway::time::{SignedDuration as Duration, Timestamp};
 use kgateway::{config::GatewayConfig, Gateway};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -171,13 +171,13 @@ fn snapshot(
     expected_revision: Option<u64>,
     acl: String,
 ) -> ManagedSnapshot {
-    let now = Utc::now();
+    let now = Timestamp::now();
     ManagedSnapshot::new(
         gateway_id,
         revision,
         expected_revision,
         now,
-        now + Duration::hours(1),
+        now + Duration::from_hours(1),
         acl,
     )
 }
@@ -328,8 +328,8 @@ async fn managed_snapshot_rejects_expired_stale_and_conflicting_revisions() {
         "PathPrefix(`/`)",
     );
     let mut expired = snapshot(gateway_id, 2, Some(1), acl_v2.clone());
-    expired.issued_at = Utc::now() - Duration::hours(2);
-    expired.expires_at = Utc::now() - Duration::hours(1);
+    expired.issued_at = Timestamp::now() - Duration::from_hours(2);
+    expired.expires_at = Timestamp::now() - Duration::from_hours(1);
     let (status_code, rejected) = apply(&client, management_port, &expired).await;
     assert_eq!(status_code, reqwest::StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(rejected.state, ManagedSnapshotState::Rejected);
@@ -342,7 +342,7 @@ async fn managed_snapshot_rejects_expired_stale_and_conflicting_revisions() {
     );
 
     let mut excessive_validity = snapshot(gateway_id, 2, Some(1), acl_v2.clone());
-    excessive_validity.expires_at = excessive_validity.issued_at + Duration::hours(25);
+    excessive_validity.expires_at = excessive_validity.issued_at + Duration::from_hours(25);
     let (status_code, rejected) = apply(&client, management_port, &excessive_validity).await;
     assert_eq!(status_code, reqwest::StatusCode::UNPROCESSABLE_ENTITY);
     assert!(rejected.reason.unwrap().contains("24 hours"));

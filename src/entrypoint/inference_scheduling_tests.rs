@@ -9,7 +9,7 @@ use crate::config::{
     InferenceTransferHealth, InferenceWorkerConfig, ManagedTargetConfig, ServerConfig,
     POWER_WORKER_OBSERVATION_SCHEMA,
 };
-use chrono::{Duration as ChronoDuration, Utc};
+use crate::time::{SignedDuration, Timestamp};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -48,8 +48,8 @@ pub(super) fn enable_worker_scheduling(
         distributed_serving: None,
     });
 
-    let observed_at = Utc::now();
-    let expires_at = observed_at + ChronoDuration::seconds(15);
+    let observed_at = Timestamp::now();
+    let expires_at = observed_at + SignedDuration::from_secs(15);
     let servers = workers
         .iter()
         .enumerate()
@@ -121,7 +121,11 @@ async fn managed_inference_selects_the_eligible_worker_and_forwards_only_scoped_
     let key = inference_key('a');
     let (pressured, pressured_request) = spawn_capturing_backend().await;
     let (available, available_request) = spawn_capturing_backend().await;
-    let mut config = inference_config(pressured, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        pressured,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_worker_scheduling(
         &mut config,
         &[(pressured, "power-a", 9, 1), (available, "power-b", 1, 0)],
@@ -169,7 +173,11 @@ async fn managed_inference_selects_the_eligible_worker_and_forwards_only_scoped_
 async fn managed_inference_pool_rejects_when_its_bounded_queue_is_disabled() {
     let key = inference_key('a');
     let (backend, request_started, release_request) = spawn_blocking_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -229,7 +237,11 @@ async fn managed_inference_pool_rejects_when_its_bounded_queue_is_disabled() {
 async fn managed_inference_pool_rejects_when_queue_deadline_elapses() {
     let key = inference_key('q');
     let (backend, request_started, release_request) = spawn_blocking_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -329,7 +341,11 @@ async fn managed_inference_pool_releases_queue_slot_when_waiting_client_aborts()
 
     let key = inference_key('c');
     let (backend, mut request_started, release_streams) = spawn_multi_holding_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -470,7 +486,11 @@ async fn managed_inference_pool_releases_active_slot_when_streaming_client_abort
     let key = inference_key('p');
     let (backend, mut started, mut disconnected) =
         spawn_repeating_holding_streaming_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     // Grant concurrency stays above the pool so the binding limit is the
     // scheduling active slot (pool_queue_full), not concurrency_limit_exceeded.
     set_limits(
@@ -572,7 +592,11 @@ async fn expired_worker_observations_fail_closed_without_upstream_contact() {
     // upstream. Cloud must refresh observations before service resumes.
     let key = inference_key('e');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_worker_scheduling(&mut config, &[(backend, "power-a", 0, 0)], 8, 8, 500);
     config.validate().unwrap();
 
@@ -586,7 +610,7 @@ async fn expired_worker_observations_fail_closed_without_upstream_contact() {
         .as_deref()
         .expect("inference authorizer");
     for worker in config.inference.as_mut().unwrap().workers.values_mut() {
-        worker.expires_at = Utc::now() - ChronoDuration::seconds(1);
+        worker.expires_at = Timestamp::now() - SignedDuration::from_secs(1);
     }
     runtime.replace(gateway_state_with_previous(&config, Some(previous)));
     drop(old_state);
@@ -626,7 +650,7 @@ async fn managed_snapshot_apply_empty_worker_successor_retains_prior_scheduled_r
 
     let key = inference_key('w');
     let (backend, upstream_hits) = spawn_multi_ok_backend(2).await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(backend, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     enable_worker_scheduling(&mut first, &[(backend, "power-a", 0, 0)], 8, 8, 500);
@@ -670,7 +694,14 @@ async fn managed_snapshot_apply_empty_worker_successor_retains_prior_scheduled_r
 
     let applied = store
         .apply(
-            ManagedSnapshot::new(gateway_id, 1, None, Utc::now(), snapshot_expires, first_acl),
+            ManagedSnapshot::new(
+                gateway_id,
+                1,
+                None,
+                Timestamp::now(),
+                snapshot_expires,
+                first_acl,
+            ),
             Some(&callback),
         )
         .await;
@@ -691,7 +722,7 @@ async fn managed_snapshot_apply_empty_worker_successor_retains_prior_scheduled_r
 
     let mut empty_workers = first.clone();
     empty_workers.inference.as_mut().unwrap().workers.clear();
-    let empty_expires = Utc::now() + ChronoDuration::hours(1);
+    let empty_expires = Timestamp::now() + SignedDuration::from_hours(1);
     empty_workers.inference.as_mut().unwrap().expires_at = empty_expires;
     let rejected = store
         .apply(
@@ -699,7 +730,7 @@ async fn managed_snapshot_apply_empty_worker_successor_retains_prior_scheduled_r
                 gateway_id,
                 2,
                 Some(1),
-                Utc::now(),
+                Timestamp::now(),
                 empty_expires,
                 render_inference_snapshot_acl(&empty_workers),
             ),
@@ -718,7 +749,7 @@ async fn managed_snapshot_apply_empty_worker_successor_retains_prior_scheduled_r
         rejected.status.reason
     );
     assert_eq!(reload_calls.load(Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 
     let retained = reqwest::Client::new()
         .post(format!("http://{address}/v1/chat/completions"))
@@ -751,7 +782,7 @@ async fn managed_snapshot_apply_stale_worker_successor_retains_prior_scheduled_r
 
     let key = inference_key('f');
     let (backend, upstream_hits) = spawn_multi_ok_backend(2).await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(backend, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     enable_worker_scheduling(&mut first, &[(backend, "power-a", 0, 0)], 8, 8, 500);
@@ -795,7 +826,14 @@ async fn managed_snapshot_apply_stale_worker_successor_retains_prior_scheduled_r
 
     let applied = store
         .apply(
-            ManagedSnapshot::new(gateway_id, 1, None, Utc::now(), snapshot_expires, first_acl),
+            ManagedSnapshot::new(
+                gateway_id,
+                1,
+                None,
+                Timestamp::now(),
+                snapshot_expires,
+                first_acl,
+            ),
             Some(&callback),
         )
         .await;
@@ -818,10 +856,10 @@ async fn managed_snapshot_apply_stale_worker_successor_retains_prior_scheduled_r
     {
         let inference = stale_workers.inference.as_mut().unwrap();
         for worker in inference.workers.values_mut() {
-            worker.observed_at = Utc::now() - ChronoDuration::seconds(10);
-            worker.expires_at = Utc::now();
+            worker.observed_at = Timestamp::now() - SignedDuration::from_secs(10);
+            worker.expires_at = Timestamp::now();
         }
-        inference.expires_at = Utc::now() + ChronoDuration::hours(1);
+        inference.expires_at = Timestamp::now() + SignedDuration::from_hours(1);
     }
     let stale_expires = stale_workers.inference.as_ref().unwrap().expires_at;
     let rejected = store
@@ -830,7 +868,7 @@ async fn managed_snapshot_apply_stale_worker_successor_retains_prior_scheduled_r
                 gateway_id,
                 2,
                 Some(1),
-                Utc::now(),
+                Timestamp::now(),
                 stale_expires,
                 render_inference_snapshot_acl(&stale_workers),
             ),
@@ -849,7 +887,7 @@ async fn managed_snapshot_apply_stale_worker_successor_retains_prior_scheduled_r
         rejected.status.reason
     );
     assert_eq!(reload_calls.load(Ordering::SeqCst), 1);
-    assert!(store.status(Some(first_identity), Utc::now()).ready);
+    assert!(store.status(Some(first_identity), Timestamp::now()).ready);
 
     let retained = reqwest::Client::new()
         .post(format!("http://{address}/v1/chat/completions"))
@@ -874,7 +912,11 @@ async fn managed_inference_retries_another_worker_within_the_same_target_generat
     let key = inference_key('a');
     let (failing, failed_request) = spawn_failing_backend().await;
     let (healthy, healthy_request) = spawn_capturing_backend().await;
-    let mut config = inference_config(failing, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        failing,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_worker_scheduling(
         &mut config,
         &[(failing, "power-a", 0, 0), (healthy, "power-b", 2, 0)],

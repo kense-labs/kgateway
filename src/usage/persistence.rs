@@ -122,7 +122,7 @@ pub(super) async fn open(options: &UsageSpoolOptions) -> Result<OpenedSpool, Usa
     )?;
 
     let boot_epoch = Uuid::new_v4();
-    let created_at = chrono::Utc::now();
+    let created_at = crate::time::Timestamp::now();
     let file_name = format!("epoch-{boot_epoch}.jsonl");
     let pending_name = format!(".{file_name}.pending");
     let final_path = options.directory.join(&file_name);
@@ -611,11 +611,10 @@ fn project_boot_epoch_capacity(
     max_bytes: u64,
     gateway_id: Uuid,
 ) -> Result<(), UsageSpoolError> {
-    // Max-width RFC3339 with nanoseconds — live `Utc::now()` can serialize
+    // Max-width RFC3339 with nanoseconds — live `Timestamp::now()` can serialize
     // shorter (no fractional seconds) and inflate headroom relative to open.
-    let created_at = chrono::DateTime::parse_from_rfc3339("9999-12-31T23:59:59.999999999Z")
-        .expect("fixed capacity-projection timestamp")
-        .with_timezone(&chrono::Utc);
+    let created_at = crate::time::Timestamp::parse_from_rfc3339("9999-12-31T23:59:59.999999999Z")
+        .expect("fixed capacity-projection timestamp");
     let boot_epoch = Uuid::nil();
     let file_name = format!("epoch-{boot_epoch}.jsonl");
     let header = SegmentHeader {

@@ -3,7 +3,7 @@ use super::contract::{
     DecodePrepareRequest, PhaseDecision, PhaseRequestPayload, ProtocolBinding, ProtocolErrorCode,
     DISTRIBUTED_SERVING_SCHEMA,
 };
-use chrono::{Duration as ChronoDuration, Utc};
+use crate::time::{SignedDuration, Timestamp};
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -29,7 +29,7 @@ fn request(binding: &ProtocolBinding) -> DecodePrepareRequest {
         execution_id: binding.execution_id,
         worker_epoch: binding.worker_epoch,
         execution_profile_sha256: binding.execution_profile_sha256.clone(),
-        expires_at: Utc::now() + ChronoDuration::seconds(30),
+        expires_at: Timestamp::now() + SignedDuration::from_secs(30),
         request: PhaseRequestPayload::ChatCompletions {
             body: json!({
                 "model": "internal/model-v1",

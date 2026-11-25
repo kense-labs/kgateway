@@ -7,7 +7,7 @@ use super::inference_tests::{
 };
 use crate::config::{InferenceTargetConfig, ServerConfig};
 use crate::inference::{ATTEMPT_ID_HEADER, REQUEST_ID_HEADER};
-use chrono::{Duration as ChronoDuration, Utc};
+use crate::time::{SignedDuration, Timestamp};
 use futures_util::StreamExt;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -147,7 +147,11 @@ async fn managed_http_falls_back_after_pre_response_transport_failure() {
     let (primary, primary_request) = spawn_drop_before_response_backend().await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "application/json", r#"{"source":"fallback"}"#).await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (_, fallback_target_id) = add_fallback_target(&mut config, fallback);
     config.validate().unwrap();
     let (state, mut log_rx) = state_with_access_log(&config);
@@ -195,7 +199,11 @@ async fn managed_http_falls_back_after_first_response_timeout() {
     let (primary, primary_request) = spawn_hanging_backend().await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "application/json", r#"{"source":"fallback"}"#).await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     add_fallback_target(&mut config, fallback);
     config
         .services
@@ -234,7 +242,11 @@ async fn managed_http_does_not_fallback_after_an_upstream_status() {
         spawn_response_backend(503, "application/json", r#"{"source":"primary"}"#).await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "application/json", r#"{"source":"fallback"}"#).await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (primary_target_id, _) = add_fallback_target(&mut config, fallback);
     config.validate().unwrap();
     let (state, mut log_rx) = state_with_access_log(&config);
@@ -272,7 +284,11 @@ async fn managed_http_does_not_fallback_after_upstream_response_start() {
     let (primary, primary_request) = spawn_partial_response_backend().await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "application/json", r#"{"source":"fallback"}"#).await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     add_fallback_target(&mut config, fallback);
     config.validate().unwrap();
     let (address, shutdown_tx, handle) =
@@ -307,7 +323,11 @@ async fn managed_sse_falls_back_only_before_the_upstream_response() {
     let (primary, primary_request) = spawn_drop_before_response_backend().await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "text/event-stream", "data: hello\n\ndata: [DONE]\n\n").await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     add_fallback_target(&mut config, fallback);
     config.validate().unwrap();
     let (address, shutdown_tx, handle) =
@@ -346,7 +366,11 @@ async fn managed_sse_does_not_fallback_after_stream_idle_timeout() {
     let (primary, stream_started, upstream_disconnected) = spawn_streaming_backend().await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "text/event-stream", "data: fallback\n\n").await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     config
         .services
         .get_mut("model-service")
@@ -406,7 +430,11 @@ async fn managed_fallback_persists_ordered_attempt_boundaries() {
     let (primary, primary_request) = spawn_drop_before_response_backend().await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "application/json", r#"{"source":"fallback"}"#).await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     add_fallback_target(&mut config, fallback);
     config.validate().unwrap();
     let directory = tempfile::tempdir().unwrap();
@@ -464,7 +492,11 @@ async fn target_successor_runtime_routes_only_to_remaining_fallback_without_prim
         spawn_response_backend(200, "application/json", r#"{"source":"primary"}"#).await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "application/json", r#"{"source":"fallback"}"#).await;
-    let mut config = inference_config(primary, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        primary,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let (primary_target_id, _) = add_fallback_target(&mut config, fallback);
     config.validate().unwrap();
     let runtime = GatewayRuntime::new(gateway_state(&config));
@@ -539,7 +571,7 @@ async fn managed_snapshot_apply_target_successor_routes_only_to_remaining_fallba
         spawn_response_backend(200, "application/json", r#"{"source":"primary"}"#).await;
     let (fallback, fallback_request) =
         spawn_response_backend(200, "application/json", r#"{"source":"fallback"}"#).await;
-    let snapshot_expires = Utc::now() + ChronoDuration::hours(1);
+    let snapshot_expires = Timestamp::now() + SignedDuration::from_hours(1);
     let mut first = inference_config(primary, &key, snapshot_expires);
     first.inference.as_mut().unwrap().expires_at = snapshot_expires;
     let (primary_target_id, _) = add_fallback_target(&mut first, fallback);
@@ -594,7 +626,7 @@ async fn managed_snapshot_apply_target_successor_routes_only_to_remaining_fallba
         gateway_id,
         1,
         None,
-        Utc::now(),
+        Timestamp::now(),
         snapshot_expires,
         render_inference_snapshot_acl(&first),
     );
@@ -606,13 +638,13 @@ async fn managed_snapshot_apply_target_successor_routes_only_to_remaining_fallba
             .ready
     );
 
-    let successor_expires = Utc::now() + ChronoDuration::hours(1);
+    let successor_expires = Timestamp::now() + SignedDuration::from_hours(1);
     successor.inference.as_mut().unwrap().expires_at = successor_expires;
     let successor_snapshot = ManagedSnapshot::new(
         gateway_id,
         2,
         Some(1),
-        Utc::now(),
+        Timestamp::now(),
         successor_expires,
         render_inference_snapshot_acl(&successor),
     );

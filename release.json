@@ -2,7 +2,9 @@
   "version": "1.1.1",
   "notes": [
     "The Cargo package, executable, Helm chart, and installer use the kgateway name.",
-    "HTTPS upstreams can require a service-specific TLS client identity."
+    "HTTPS upstreams can require a service-specific TLS client identity.",
+    "Managed MaaS deployments add tenant-scoped routing, usage settlement, and kstack rollout and recovery coverage.",
+    "Release installers and the self-updater verify archive checksums. Source builds require Rust 1.89 or later."
   ],
   "maturity": "production-candidate",
   "open_gates": [

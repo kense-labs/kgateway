@@ -1,6 +1,6 @@
 //! Versioned Gateway-to-Power distributed-serving wire contract.
 
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
@@ -52,7 +52,7 @@ pub(crate) struct DecodePrepareRequest {
     pub(crate) execution_id: Uuid,
     pub(crate) worker_epoch: Uuid,
     pub(crate) execution_profile_sha256: String,
-    pub(crate) expires_at: DateTime<Utc>,
+    pub(crate) expires_at: Timestamp,
     pub(crate) request: PhaseRequestPayload,
 }
 
@@ -76,7 +76,7 @@ pub(crate) struct PrefillExecuteRequest {
     pub(crate) execution_id: Uuid,
     pub(crate) worker_epoch: Uuid,
     pub(crate) execution_profile_sha256: String,
-    pub(crate) expires_at: DateTime<Utc>,
+    pub(crate) expires_at: Timestamp,
     pub(crate) request: PhaseRequestPayload,
     pub(crate) target: OpaqueTransferValue,
 }

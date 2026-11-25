@@ -9,7 +9,7 @@ use crate::config::{
     GatewayConfig, InferencePhaseRole, InferenceTransferHealth, InferenceWorkerConfig,
     ManagedTargetConfig, ServerConfig, POWER_WORKER_OBSERVATION_SCHEMA,
 };
-use chrono::{Duration as ChronoDuration, Utc};
+use crate::time::{SignedDuration, Timestamp};
 use http::StatusCode;
 use serde_json::Value;
 use std::net::SocketAddr;
@@ -96,8 +96,8 @@ fn add_preferred_failing_pair(
             "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
         ),
     ];
-    let observed_at = Utc::now();
-    let expires_at = observed_at + ChronoDuration::seconds(30);
+    let observed_at = Timestamp::now();
+    let expires_at = observed_at + SignedDuration::from_secs(30);
     for (unit_id, address, phase, worker_epoch, profile) in specs.into_iter().rev() {
         let target = ManagedTargetConfig {
             target_id,
@@ -153,7 +153,11 @@ async fn pre_response_transport_failure_reselects_a_distinct_worker_pair() {
         spawn_successful_power_pair().await;
     let (failing_prefill, failing_prefill_task) = spawn_connection_closer(1).await;
     let (failing_decode, failing_decode_task) = spawn_connection_closer(2).await;
-    let mut config = inference_config(backup_decode, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backup_decode,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, backup_prefill, backup_decode);
     add_preferred_failing_pair(&mut config, failing_prefill, failing_decode);
     config.validate().unwrap();
@@ -210,8 +214,11 @@ async fn protocol_version_and_binding_skew_reselect_compatible_worker_pairs() {
             code,
         )
         .await;
-        let mut config =
-            inference_config(backup_decode, &key, Utc::now() + ChronoDuration::hours(1));
+        let mut config = inference_config(
+            backup_decode,
+            &key,
+            Timestamp::now() + SignedDuration::from_hours(1),
+        );
         enable_distributed_scheduling(&mut config, backup_prefill, backup_decode);
         add_preferred_failing_pair(&mut config, rejecting_prefill, rejecting_decode);
         config.validate().unwrap();

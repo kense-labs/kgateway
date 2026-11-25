@@ -4,14 +4,4 @@
 # remaining path and a removal trigger.
 
 [advisories]
-ignore = [
-    # kube-client only affects the OpenSSL connector. CI enforces the rustls-only graph.
-    # Remove when kube-client >=4.2.1 can be used with the supported Rust version.
-    "RUSTSEC-2026-0600",
-    # chrono is still selected by kgateway and its dependencies. Remove once the
-    # runtime and its transitive dependencies move to maintained time types.
-    "RUSTSEC-2026-0543",
-    # kube-client 2 loads kubeconfigs with serde_yaml. Remove when the supported
-    # kube-client line uses a maintained parser.
-    "RUSTSEC-2024-0449",
-]
+ignore = []

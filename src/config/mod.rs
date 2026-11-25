@@ -344,7 +344,7 @@ impl GatewayConfig {
             }
         }
         if let Some(inference) = &self.inference {
-            inference.validate(self, chrono::Utc::now())?;
+            inference.validate(self, crate::time::Timestamp::now())?;
         }
 
         // Every router must reference an existing service or static bundle.

@@ -7,7 +7,7 @@ use crate::config::{
     POWER_WORKER_OBSERVATION_SCHEMA,
 };
 use crate::error::{GatewayError, Result};
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
@@ -212,8 +212,8 @@ fn validate_distributed_worker_pair(
 
 pub(super) fn validate_worker(
     worker: &InferenceWorkerConfig,
-    policy_expires_at: DateTime<Utc>,
-    now: DateTime<Utc>,
+    policy_expires_at: Timestamp,
+    now: Timestamp,
 ) -> Result<()> {
     worker.target.validate().map_err(|error| {
         config_error(format!(
@@ -247,11 +247,12 @@ pub(super) fn validate_worker(
         ));
     }
     let validity = worker.expires_at - worker.observed_at;
-    if validity <= chrono::Duration::zero()
-        || validity > chrono::Duration::seconds(MAX_WORKER_OBSERVATION_AGE_SECONDS)
+    if validity <= crate::time::SignedDuration::ZERO
+        || validity > crate::time::SignedDuration::from_secs(MAX_WORKER_OBSERVATION_AGE_SECONDS)
         || worker.expires_at > policy_expires_at
         || worker.expires_at <= now
-        || worker.observed_at > now + chrono::Duration::seconds(MAX_WORKER_CLOCK_SKEW_SECONDS)
+        || worker.observed_at
+            > now + crate::time::SignedDuration::from_secs(MAX_WORKER_CLOCK_SKEW_SECONDS)
     {
         return Err(worker_error(worker, "has an invalid freshness window"));
     }

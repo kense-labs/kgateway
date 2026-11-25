@@ -222,7 +222,7 @@ impl RequestTracker {
         inference: Option<InferenceAccessLogContext>,
     ) -> AccessLogEntry {
         AccessLogEntry {
-            timestamp: chrono::Utc::now().to_rfc3339(),
+            timestamp: crate::time::Timestamp::now().to_rfc3339(),
             client_ip,
             method,
             path,

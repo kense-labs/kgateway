@@ -13,7 +13,7 @@ fn target(unit_id: &str, generation: u64) -> ManagedTargetConfig {
 }
 
 fn worker(target: ManagedTargetConfig, active: u64, waiting: u64) -> InferenceWorkerConfig {
-    let observed_at = Utc::now();
+    let observed_at = Timestamp::now();
     InferenceWorkerConfig {
         target,
         schema: POWER_WORKER_OBSERVATION_SCHEMA.to_string(),
@@ -21,7 +21,7 @@ fn worker(target: ManagedTargetConfig, active: u64, waiting: u64) -> InferenceWo
         execution_profile_sha256: None,
         observation_generation: 1,
         observed_at,
-        expires_at: observed_at + chrono::Duration::seconds(15),
+        expires_at: observed_at + crate::time::SignedDuration::from_secs(15),
         phases: vec![InferencePhaseRole::Aggregated],
         prompt_cache_capable: true,
         state_transfer_capable: false,
@@ -86,7 +86,7 @@ fn selection_filters_exact_identity_phase_expiry_health_and_capacity() {
     let first = target("unit-a", 7);
     let second = target("unit-b", 7);
     let stale = target("unit-c", 7);
-    let now = Utc::now();
+    let now = Timestamp::now();
     let mut workers = HashMap::from([
         (first.unit_id.clone(), worker(first.clone(), 9, 0)),
         (second.unit_id.clone(), worker(second.clone(), 2, 0)),
@@ -157,7 +157,7 @@ fn cache_affinity_is_deterministic_inside_the_low_load_band() {
         &scheduling(),
         first.target_id,
         &candidates,
-        Utc::now(),
+        Timestamp::now(),
         b"request-a",
         Some("scoped-cache-key"),
     )
@@ -167,7 +167,7 @@ fn cache_affinity_is_deterministic_inside_the_low_load_band() {
         &scheduling(),
         first.target_id,
         &candidates,
-        Utc::now(),
+        Timestamp::now(),
         b"request-b",
         Some("scoped-cache-key"),
     )
@@ -226,7 +226,7 @@ fn distributed_selection_returns_distinct_prefill_and_decode_bindings() {
         &distributed_scheduling(),
         decode.target_id,
         &candidates,
-        Utc::now(),
+        Timestamp::now(),
         b"request",
         Some("a3s-gw-pcache-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
     )
@@ -257,7 +257,7 @@ fn distributed_selection_fails_closed_on_profile_transfer_or_distinctness() {
         &distributed_scheduling(),
         dual.target_id,
         &candidates,
-        Utc::now(),
+        Timestamp::now(),
         b"request",
         None,
     )
@@ -290,7 +290,7 @@ fn distributed_selection_fails_closed_on_profile_transfer_or_distinctness() {
         &distributed_scheduling(),
         decode.target_id,
         &candidates,
-        Utc::now(),
+        Timestamp::now(),
         b"request",
         None,
     )
@@ -303,7 +303,7 @@ fn pool_policy() -> (InferenceConfig, InferencePoolIdentity) {
     let identity = InferencePoolIdentity { route_id, model_id };
     (
         InferenceConfig {
-            expires_at: Utc::now() + chrono::Duration::hours(1),
+            expires_at: Timestamp::now() + crate::time::SignedDuration::from_hours(1),
             tokenizer_revision: crate::config::INFERENCE_TOKENIZER_REVISION.into(),
             credentials: HashMap::new(),
             routes: HashMap::from([(

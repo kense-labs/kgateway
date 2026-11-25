@@ -5,8 +5,8 @@
 #[path = "support/node_auth.rs"]
 mod node_auth;
 
-use chrono::{Duration, Utc};
 use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+use kgateway::time::{SignedDuration as Duration, Timestamp};
 use kgateway::{config::GatewayConfig, Gateway};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -125,13 +125,13 @@ fn snapshot(
     expected_revision: Option<u64>,
     acl: String,
 ) -> ManagedSnapshot {
-    let now = Utc::now();
+    let now = Timestamp::now();
     ManagedSnapshot::new(
         gateway_id,
         revision,
         expected_revision,
         now,
-        now + Duration::hours(1),
+        now + Duration::from_hours(1),
         acl,
     )
 }

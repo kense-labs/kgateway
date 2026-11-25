@@ -476,11 +476,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@1.89
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Check MSRV (1.88)
+      - name: Check MSRV (1.89)
         run: bash scripts/run-cargo-annotated.sh cargo check --locked --all-features
 
   bench-check:
@@ -660,14 +660,6 @@ jobs:
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked --version 0.23.0
-
-      - name: Check that the Kubernetes client uses rustls only
-        run: |
-          features=$(cargo tree --locked --all-features --target all -e features -i kube-client)
-          if grep -Fq 'kube-client feature "openssl-tls"' <<<"$features"; then
-            echo '::error::The kube-client OpenSSL advisory applies when openssl-tls is enabled'
-            exit 1
-          fi
 
       - name: Audit Rust dependencies
         # Fail on vulnerabilities and unignored warnings.

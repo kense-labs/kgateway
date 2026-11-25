@@ -154,13 +154,13 @@ async fn managed_snapshot_reload_preserves_the_managed_service_overlay() {
         .unwrap();
     assert_eq!(backend.next_path().await, "/healthz");
 
-    let now = Utc::now();
+    let now = Timestamp::now();
     let snapshot = ManagedSnapshot::new(
         gateway_id,
         1,
         None,
         now,
-        now + ChronoDuration::hours(1),
+        now + SignedDuration::from_hours(1),
         cloud_managed_acl(
             gateway_id,
             gateway_address,

@@ -9,7 +9,7 @@ use crate::config::{
     InferenceWorkerConfig, ManagedTargetConfig, POWER_WORKER_OBSERVATION_SCHEMA,
 };
 use crate::inference::scheduling::{select_worker, InferenceWorkerCandidate};
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use serde::Deserialize;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -31,8 +31,8 @@ struct PowerWorkerObservation {
     schema: String,
     worker_epoch: Uuid,
     observation_generation: u64,
-    observed_at: DateTime<Utc>,
-    expires_at: DateTime<Utc>,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
     capabilities: PowerWorkerCapabilities,
     ready_phases: Vec<String>,
     admission: PowerAdmissionObservation,
@@ -307,10 +307,10 @@ fn power_nested_observation_projects_into_gateway_flat_worker_and_schedules() {
     );
 
     // Freshness for ACL validate/select uses wall clock; keep Power field map.
-    let now = Utc::now();
+    let now = Timestamp::now();
     let mut live = projected.clone();
-    live.observed_at = now - chrono::Duration::seconds(1);
-    live.expires_at = now + chrono::Duration::seconds(14);
+    live.observed_at = now - crate::time::SignedDuration::from_secs(1);
+    live.expires_at = now + crate::time::SignedDuration::from_secs(14);
 
     let config = GatewayConfig::from_acl(&flat_worker_acl(&live)).unwrap();
     let accepted = config

@@ -9,7 +9,7 @@ use super::{
     RequestEvidence, UsageTerminalOutcome, LIFECYCLE_SCHEMA,
 };
 use crate::config::InferenceEndpoint;
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -89,7 +89,7 @@ struct CloudAttempt {
 struct CloudLifecycleEvent {
     schema: String,
     kind: CloudKind,
-    occurred_at: DateTime<Utc>,
+    occurred_at: Timestamp,
     request: CloudRequest,
     #[serde(default)]
     attempt: Option<CloudAttempt>,

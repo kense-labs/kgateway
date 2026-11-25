@@ -1,8 +1,8 @@
 #[path = "support/node_auth.rs"]
 mod node_auth;
 
-use chrono::{Duration, Utc};
 use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+use kgateway::time::{SignedDuration as Duration, Timestamp};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -113,13 +113,13 @@ impl ReplicaFixture {
         route_service: &str,
         managed_target: Option<(Uuid, &str, u64)>,
     ) -> ManagedSnapshot {
-        let now = Utc::now();
+        let now = Timestamp::now();
         ManagedSnapshot::new(
             self.gateway_id,
             revision,
             expected_revision,
             now,
-            now + Duration::hours(1),
+            now + Duration::from_hours(1),
             snapshot_acl(
                 self.gateway_id,
                 self.traffic_port,

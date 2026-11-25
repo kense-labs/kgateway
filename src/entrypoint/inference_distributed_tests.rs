@@ -9,8 +9,8 @@ use crate::config::{
     InferenceSchedulingConfig, InferenceTransferHealth, InferenceWorkerConfig, ManagedTargetConfig,
     ServerConfig, POWER_WORKER_OBSERVATION_SCHEMA,
 };
+use crate::time::{SignedDuration, Timestamp};
 use crate::usage::{UsageSpool, UsageSpoolOptions};
-use chrono::{Duration as ChronoDuration, Utc};
 use futures_util::StreamExt;
 use http::StatusCode;
 use serde_json::{json, Value};
@@ -427,8 +427,8 @@ pub(super) fn enable_distributed_scheduling(
         }),
     });
 
-    let observed_at = Utc::now();
-    let expires_at = observed_at + ChronoDuration::seconds(30);
+    let observed_at = Timestamp::now();
+    let expires_at = observed_at + SignedDuration::from_secs(30);
     let workers = [
         (
             WorkerRole::Prefill,
@@ -505,7 +505,11 @@ async fn managed_openai_request_executes_through_the_power_prefill_decode_contra
         spawn_power_worker(WorkerRole::Prefill).await;
     let (decode_address, decode_records, decode_task) =
         spawn_power_worker(WorkerRole::Decode).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     config.validate().unwrap();
     let state = gateway_state_with_distributed_key(&config, KEY_ENV, API_KEY);
@@ -553,7 +557,11 @@ async fn managed_streaming_request_exposes_only_openai_sse() {
     let key = inference_key('b');
     let (prefill_address, _, prefill_task) = spawn_power_worker(WorkerRole::Prefill).await;
     let (decode_address, _, decode_task) = spawn_power_worker(WorkerRole::Decode).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     config.validate().unwrap();
     let state = gateway_state_with_distributed_key(&config, KEY_ENV, API_KEY);
@@ -622,7 +630,11 @@ async fn response_middleware_error_fails_closed_on_distributed_json_listener_wit
     let key = inference_key('c');
     let (prefill_address, _, prefill_task) = spawn_power_worker(WorkerRole::Prefill).await;
     let (decode_address, _, decode_task) = spawn_power_worker(WorkerRole::Decode).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     config
         .routers
@@ -698,7 +710,11 @@ async fn response_middleware_error_fails_closed_on_distributed_sse_listener_with
     let key = inference_key('d');
     let (prefill_address, _, prefill_task) = spawn_power_worker(WorkerRole::Prefill).await;
     let (decode_address, _, decode_task) = spawn_power_worker(WorkerRole::Decode).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     config
         .routers
@@ -767,7 +783,11 @@ async fn managed_distributed_json_persists_upstream_usage_on_request_terminal() 
     let key = inference_key('d');
     let (prefill_address, _, prefill_task) = spawn_power_worker(WorkerRole::Prefill).await;
     let (decode_address, _, decode_task) = spawn_power_worker(WorkerRole::Decode).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     config.validate().unwrap();
     let directory = tempfile::tempdir().unwrap();
@@ -811,7 +831,11 @@ async fn managed_distributed_sse_persists_upstream_usage_on_request_terminal() {
     let key = inference_key('g');
     let (prefill_address, _, prefill_task) = spawn_power_worker(WorkerRole::Prefill).await;
     let (decode_address, _, decode_task) = spawn_power_worker(WorkerRole::Decode).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     config.validate().unwrap();
     let directory = tempfile::tempdir().unwrap();
@@ -858,7 +882,11 @@ async fn managed_distributed_json_upstream_usage_reconciles_token_budget_for_fol
         spawn_power_worker_for_executions(WorkerRole::Prefill, 2).await;
     let (decode_address, _, decode_task) =
         spawn_power_worker_for_executions(WorkerRole::Decode, 2).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     set_limits(
         &mut config,
@@ -921,7 +949,11 @@ async fn managed_distributed_sse_without_usage_keeps_provisional_token_reservati
     let (prefill_address, _, prefill_task) =
         spawn_power_workers(WorkerRole::Prefill, 1, false).await;
     let (decode_address, _, decode_task) = spawn_power_workers(WorkerRole::Decode, 1, false).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     set_limits(
         &mut config,
@@ -985,7 +1017,11 @@ async fn managed_distributed_json_without_usage_keeps_provisional_token_reservat
     let (prefill_address, _, prefill_task) =
         spawn_power_workers(WorkerRole::Prefill, 1, false).await;
     let (decode_address, _, decode_task) = spawn_power_workers(WorkerRole::Decode, 1, false).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     set_limits(
         &mut config,
@@ -1049,7 +1085,11 @@ async fn managed_distributed_sse_upstream_usage_reconciles_token_budget_for_foll
         spawn_power_worker_for_executions(WorkerRole::Prefill, 2).await;
     let (decode_address, _, decode_task) =
         spawn_power_worker_for_executions(WorkerRole::Decode, 2).await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     set_limits(
         &mut config,
@@ -1562,7 +1602,11 @@ async fn managed_distributed_sse_client_cancel_aborts_both_workers_and_releases_
     let key = inference_key('f');
     let (prefill_address, decode_address, stream_started, prefill_abort, decode_abort) =
         spawn_holding_power_pair_for_client_cancel().await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     set_limits(
         &mut config,
@@ -1659,7 +1703,11 @@ async fn managed_distributed_sse_client_cancel_persists_terminal_disconnect_outc
     let key = inference_key('j');
     let (prefill_address, decode_address, stream_started, prefill_abort, decode_abort) =
         spawn_holding_power_pair_for_client_cancel().await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     config.validate().unwrap();
     let directory = tempfile::tempdir().unwrap();
@@ -1715,7 +1763,11 @@ async fn managed_distributed_sse_idle_timeout_aborts_both_workers_releases_admis
     let key = inference_key('k');
     let (prefill_address, decode_address, stream_started, prefill_abort, decode_abort) =
         spawn_holding_power_pair_for_client_cancel().await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     let service = config.services.get_mut("model-service").unwrap();
     service.load_balancer.stream_idle_timeout = "25ms".into();
@@ -1900,7 +1952,11 @@ async fn managed_distributed_execution_timeout_aborts_both_workers_releases_admi
     let key = inference_key('m');
     let (prefill_address, decode_address, prepare_started, prefill_abort, decode_abort) =
         spawn_holding_power_pair_for_execution_timeout().await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     let distributed = config
         .inference
@@ -2026,7 +2082,11 @@ async fn managed_distributed_sse_total_timeout_aborts_both_workers_releases_admi
     let key = inference_key('n');
     let (prefill_address, decode_address, stream_started, prefill_abort, decode_abort) =
         spawn_dripping_power_pair_for_total_timeout().await;
-    let mut config = inference_config(decode_address, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        decode_address,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     let service = config.services.get_mut("model-service").unwrap();
     // Idle is long enough that 5ms Power drips never trip it; total is the

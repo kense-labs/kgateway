@@ -130,6 +130,8 @@ Set `audit_witness` in the main control configuration with the HTTPS `endpoint` 
 
 ### Handoff and restore the control plane
 
+The control plane and audit witness use WAL with SQLite versions that include the checkpoint race fix. Earlier SQLite runtimes use a rollback journal with full synchronous writes. [SQLite WAL checkpoint fix](https://sqlite.org/wal.html#the_wal_reset_bug)
+
 Prepare a replacement using the same release pair, replica identities, signing authorization, route policy, budgets and bootstrap ACL contents. Keep the independent audit witness running. Install `age` in the operator environment. The source needs only the recipients file, while the replacement uses the private decryption identity from separate custody. The checkpoint holds the SQLite state. Preserve runtime configuration, certificates, key material, gateway ledgers and kstack storage through their respective recovery procedures. [age](https://github.com/FiloSottile/age/releases/tag/v1.3.2) · [SQLite Backup API](https://www.sqlite.org/backup.html)
 
 Stop the old controller and keep its process stopped. Run `handoff` with its configured witness writer credential. The command checks that the writer lock is idle, synchronizes the audit heads, publishes an encrypted archive under a fresh name, and durably fences the old state. The independent witness signs the archive, policy and audit-head digests. Store the archive on separate storage. Retrying after a lost witness response uses the same archive path and the same fenced source.

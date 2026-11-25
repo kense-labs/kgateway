@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
+import sqlite_journal
 import vault
 from audit import append as append_audit
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
@@ -175,7 +176,7 @@ class State:
         try:
             db.execute("PRAGMA synchronous = FULL")
             if initialize:
-                db.execute("PRAGMA journal_mode = WAL")
+                sqlite_journal.configure(db)
             else:
                 db.execute("BEGIN IMMEDIATE" if write else "BEGIN")
             yield db

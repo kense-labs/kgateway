@@ -1,11 +1,11 @@
 #[path = "support/node_auth.rs"]
 mod node_auth;
 
-use chrono::{Duration, Utc};
 use futures_util::{SinkExt, StreamExt};
 use http::header::{CONNECTION, CONTENT_TYPE, HOST};
 use http::HeaderValue;
 use kgateway::managed_snapshot::{ManagedSnapshot, ManagedSnapshotState, ManagedSnapshotStatus};
+use kgateway::time::{SignedDuration as Duration, Timestamp};
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, RootCertStore};
@@ -327,13 +327,13 @@ fn snapshot(
     expected_revision: Option<u64>,
     acl: String,
 ) -> ManagedSnapshot {
-    let now = Utc::now();
+    let now = Timestamp::now();
     ManagedSnapshot::new(
         gateway_id,
         revision,
         expected_revision,
         now,
-        now + Duration::hours(1),
+        now + Duration::from_hours(1),
         acl,
     )
 }

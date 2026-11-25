@@ -6,7 +6,7 @@
 //! Power observation delivery fills projections in a provisioned deployment.
 
 use crate::config::{GatewayConfig, POWER_WORKER_OBSERVATION_SCHEMA};
-use chrono::{SecondsFormat, Utc};
+use crate::time::Timestamp;
 use uuid::Uuid;
 
 const GATEWAY_ID: &str = "11111111-1111-4111-8111-111111111111";
@@ -21,11 +21,11 @@ const VERIFIER_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQxMjM0NTY3
 
 /// Mirror of Cloud `render_one_worker` for an aggregated projection.
 fn cloud_shaped_aggregated_worker_block(
-    observed_at: chrono::DateTime<Utc>,
-    expires_at: chrono::DateTime<Utc>,
+    observed_at: crate::time::Timestamp,
+    expires_at: crate::time::Timestamp,
 ) -> String {
-    let observed = observed_at.to_rfc3339_opts(SecondsFormat::Micros, true);
-    let expires = expires_at.to_rfc3339_opts(SecondsFormat::Micros, true);
+    let observed = observed_at.to_rfc3339_micros();
+    let expires = expires_at.to_rfc3339_micros();
     format!(
         r#"
   workers "{WORKER_UNIT_ID}" {{
@@ -142,9 +142,9 @@ inference {{
 fn cloud_rendered_aggregated_worker_acl_shape_is_accepted_by_gateway() {
     // Timestamps follow Cloud render formatting (RFC3339 micros, Zulu) while
     // remaining wall-clock fresh for Gateway validate_worker.
-    let now = Utc::now();
-    let observed_at = now - chrono::Duration::seconds(1);
-    let expires_at = now + chrono::Duration::seconds(14);
+    let now = Timestamp::now();
+    let observed_at = now - crate::time::SignedDuration::from_secs(1);
+    let expires_at = now + crate::time::SignedDuration::from_secs(14);
     let worker_block = cloud_shaped_aggregated_worker_block(observed_at, expires_at);
 
     assert!(worker_block.contains(&format!("schema = \"{POWER_WORKER_OBSERVATION_SCHEMA}\"")));

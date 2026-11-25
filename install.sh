@@ -258,7 +258,15 @@ fi
 chmod 755 "$EXTRACTED_BINARY"
 
 REPORTED_VERSION=$("$EXTRACTED_BINARY" --version 2>&1) || fail "downloaded binary did not start"
-[ "$REPORTED_VERSION" = "${PROGRAM} ${VERSION}" ] || fail "downloaded binary reported an unexpected version: $REPORTED_VERSION"
+EXPECTED_VERSION="${PROGRAM} ${VERSION}"
+case "$REPORTED_VERSION" in
+  "$EXPECTED_VERSION") ;;
+  "$EXPECTED_VERSION "*)
+    printf '%s\n' "${REPORTED_VERSION#"$EXPECTED_VERSION "}" | grep -Eq '^[0-9a-f]{7,40}$' ||
+      fail "downloaded binary reported an unexpected version: $REPORTED_VERSION"
+    ;;
+  *) fail "downloaded binary reported an unexpected version: $REPORTED_VERSION" ;;
+esac
 
 mkdir -p "$INSTALL_DIR"
 DESTINATION="${INSTALL_DIR}/${PROGRAM}"

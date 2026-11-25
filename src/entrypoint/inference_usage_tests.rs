@@ -4,8 +4,8 @@ use super::inference_tests::{
     start_test_entrypoint, stop_test_entrypoint,
 };
 use crate::config::InferenceLimitsConfig;
+use crate::time::{SignedDuration, Timestamp};
 use crate::usage::{UsageSpool, UsageSpoolOptions};
-use chrono::{Duration as ChronoDuration, Utc};
 use futures_util::StreamExt;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -289,7 +289,11 @@ async fn managed_inference_persists_upstream_usage_on_request_terminal() {
         r#"{"id":"chatcmpl-test","object":"chat.completion","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":32,"total_tokens":42}}"#,
     )
     .await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 1024 * 1024).await;
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
@@ -334,7 +338,11 @@ async fn managed_sse_persists_upstream_usage_on_request_terminal() {
     let key = inference_key('s');
     let body = sse_body_with_terminal_usage(0, TOTAL_TOKENS);
     let (backend, captured_request) = spawn_sse_backend_with_body(body).await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 1024 * 1024).await;
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
@@ -385,7 +393,11 @@ async fn managed_sse_persists_upstream_usage_after_body_exceeds_json_prefix_budg
     let key = inference_key('p');
     let body = sse_body_with_terminal_usage(PADDING_BYTES, TOTAL_TOKENS);
     let (backend, captured_request) = spawn_sse_backend_with_body(body).await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 4 * 1024 * 1024).await;
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
@@ -423,7 +435,11 @@ async fn managed_sse_upstream_usage_reconciles_token_budget_for_follow_up_reques
     let key = inference_key('r');
     let body = sse_body_with_terminal_usage(0, OBSERVED_TOTAL_TOKENS);
     let backend = spawn_repeating_sse_backend_with_body(body).await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -480,7 +496,11 @@ async fn managed_json_upstream_usage_reconciles_token_budget_for_follow_up_reque
         r#"{"id":"chatcmpl-test","object":"chat.completion","choices":[],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}"#,
     )
     .await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -539,7 +559,11 @@ async fn managed_json_persists_upstream_usage_after_body_exceeds_json_prefix_bud
     let key = inference_key('l');
     let body = large_json_completion_with_terminal_usage(PADDING_BYTES, TOTAL_TOKENS);
     let (backend, captured_request) = spawn_json_backend_with_owned_body(body).await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 4 * 1024 * 1024).await;
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
@@ -573,7 +597,11 @@ async fn managed_sse_without_usage_keeps_provisional_token_reservation_charged()
     let body =
         "data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\ndata: [DONE]\n\n".to_string();
     let backend = spawn_repeating_sse_backend_with_body(body).await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -625,7 +653,11 @@ async fn managed_json_without_usage_keeps_provisional_token_reservation_charged(
         r#"{"id":"chatcmpl-test","object":"chat.completion","choices":[]}"#,
     )
     .await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     set_limits(
         &mut config,
         InferenceLimitsConfig {
@@ -675,7 +707,11 @@ async fn managed_inference_persists_prompt_free_request_and_attempt_lifecycle() 
 
     let key = inference_key('u');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 1024 * 1024).await;
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
@@ -730,7 +766,11 @@ async fn managed_inference_persists_prompt_free_request_and_attempt_lifecycle() 
 async fn managed_inference_fails_closed_before_dispatch_when_usage_capacity_is_full() {
     let key = inference_key('v');
     let (backend, captured_request) = spawn_capturing_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 128 * 1024).await;
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
@@ -764,7 +804,11 @@ async fn managed_inference_fails_closed_before_dispatch_when_usage_capacity_is_f
 async fn managed_sse_disconnect_persists_terminal_disconnect_outcomes() {
     let key = inference_key('w');
     let (backend, started, disconnected) = spawn_streaming_backend().await;
-    let config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 1024 * 1024).await;
     let (address, shutdown_tx, handle) = start_test_entrypoint(state).await;
@@ -800,7 +844,11 @@ async fn managed_sse_disconnect_persists_terminal_disconnect_outcomes() {
 async fn managed_sse_idle_timeout_releases_admission_and_persists_failed_terminals() {
     let key = inference_key('t');
     let (backend, mut started, mut disconnected) = spawn_repeating_idle_streaming_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let service = config.services.get_mut("model-service").unwrap();
     service.load_balancer.stream_idle_timeout = "25ms".into();
     service.load_balancer.stream_total_timeout = "1s".into();
@@ -880,7 +928,11 @@ async fn managed_sse_idle_timeout_releases_admission_and_persists_failed_termina
 async fn managed_sse_total_timeout_releases_admission_and_persists_failed_terminals() {
     let key = inference_key('u');
     let (backend, mut started, mut disconnected) = spawn_dripping_streaming_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     let service = config.services.get_mut("model-service").unwrap();
     // Idle is long enough that 20ms drips never trip it; total is the wall-clock
     // bound from request start that must win on an active stream.
@@ -1027,7 +1079,11 @@ async fn managed_sse_total_timeout_releases_admission_and_persists_failed_termin
 async fn forced_drain_persists_terminal_cancellation_outcomes() {
     let key = inference_key('x');
     let (backend, started, release) = spawn_blocking_backend().await;
-    let mut config = inference_config(backend, &key, Utc::now() + ChronoDuration::hours(1));
+    let mut config = inference_config(
+        backend,
+        &key,
+        Timestamp::now() + SignedDuration::from_hours(1),
+    );
     config.shutdown_timeout_secs = 0;
     let directory = tempfile::tempdir().unwrap();
     let (state, spool) = usage_state(&config, directory.path(), 1024 * 1024).await;

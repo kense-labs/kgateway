@@ -226,8 +226,8 @@ mod tests {
     fn valid_claims() -> Claims {
         Claims {
             sub: "user-123".to_string(),
-            exp: (chrono::Utc::now().timestamp() + 3600) as u64,
-            iat: chrono::Utc::now().timestamp() as u64,
+            exp: (crate::time::Timestamp::now().timestamp() + 3600) as u64,
+            iat: crate::time::Timestamp::now().timestamp() as u64,
             iss: "test".to_string(),
             aud: "".to_string(),
         }

@@ -1,6 +1,6 @@
 use super::{config, Operation, Rejection, Resource, RpcProtocol};
 use crate::platform_identity::valid_identifier;
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -49,7 +49,7 @@ pub(super) struct Ticket {
 }
 
 impl Ticket {
-    pub(super) fn remaining_seconds(&self, now: DateTime<Utc>) -> u64 {
+    pub(super) fn remaining_seconds(&self, now: Timestamp) -> u64 {
         self.exp.saturating_sub(now.timestamp()).max(0) as u64
     }
 }
@@ -94,7 +94,7 @@ pub(super) fn verify(
     token: &str,
     key: &DecodingKey,
     operation: &Operation,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Result<Ticket, Rejection> {
     if !operation.accept_delegation || token.len() > 16 * 1024 {
         return Err(Rejection::InvalidKey);

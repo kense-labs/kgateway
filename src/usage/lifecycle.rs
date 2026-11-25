@@ -10,8 +10,8 @@ use crate::inference::{
     AuthenticatedInference, InferenceAttemptIdentity, InferenceRequestIdentity,
 };
 use crate::response_body::ResponseBody;
+use crate::time::Timestamp;
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use http::{Response, StatusCode};
 use hyper::body::{Body, Frame, SizeHint};
 use serde::Serialize;
@@ -99,7 +99,7 @@ impl From<&InferenceAttemptIdentity> for AttemptEvidence {
 struct LifecycleEvent<'a> {
     schema: &'static str,
     kind: LifecycleEventKind,
-    occurred_at: DateTime<Utc>,
+    occurred_at: Timestamp,
     request: &'a RequestEvidence,
     #[serde(skip_serializing_if = "Option::is_none")]
     attempt: Option<&'a AttemptEvidence>,
@@ -129,7 +129,7 @@ impl<'a> LifecycleEvent<'a> {
         Self {
             schema: LIFECYCLE_SCHEMA,
             kind: LifecycleEventKind::RequestStarted,
-            occurred_at: Utc::now(),
+            occurred_at: Timestamp::now(),
             request,
             attempt: None,
             outcome: None,
@@ -144,7 +144,7 @@ impl<'a> LifecycleEvent<'a> {
         Self {
             schema: LIFECYCLE_SCHEMA,
             kind: LifecycleEventKind::AttemptStarted,
-            occurred_at: Utc::now(),
+            occurred_at: Timestamp::now(),
             request,
             attempt: Some(attempt),
             outcome: None,
@@ -172,7 +172,7 @@ impl<'a> LifecycleEvent<'a> {
         Self {
             schema: LIFECYCLE_SCHEMA,
             kind,
-            occurred_at: Utc::now(),
+            occurred_at: Timestamp::now(),
             request,
             attempt,
             outcome: Some(outcome),

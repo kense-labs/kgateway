@@ -1,6 +1,6 @@
 //! Scoped service credentials exchanged at the Kense gateway.
 
-use chrono::{DateTime, Utc};
+use crate::time::Timestamp;
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -109,11 +109,11 @@ pub struct ServiceTokenSigner {
     issuer: String,
     header: Header,
     key: EncodingKey,
-    authorized_until: DateTime<Utc>,
+    authorized_until: Timestamp,
 }
 
 impl ServiceTokenSigner {
-    pub(crate) fn can_issue(&self, now: DateTime<Utc>) -> bool {
+    pub(crate) fn can_issue(&self, now: Timestamp) -> bool {
         self.authorized_until.timestamp() - now.timestamp() >= MIN_LIFETIME_SECONDS as i64
     }
 
@@ -122,7 +122,7 @@ impl ServiceTokenSigner {
         issuer: String,
         key_id: String,
         pem: &[u8],
-        authorized_until: DateTime<Utc>,
+        authorized_until: Timestamp,
     ) -> Result<Self, ServiceTokenError> {
         Self::new(
             issuer,
@@ -136,7 +136,7 @@ impl ServiceTokenSigner {
         issuer: String,
         key_id: String,
         key: EncodingKey,
-        authorized_until: DateTime<Utc>,
+        authorized_until: Timestamp,
     ) -> Result<Self, ServiceTokenError> {
         if !valid_identifier(&issuer) || !valid_identifier(&key_id) {
             return Err(ServiceTokenError::InvalidIssuer);
@@ -156,7 +156,7 @@ impl ServiceTokenSigner {
         &self,
         invocation: ServiceInvocation,
         lifetime_seconds: u64,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<String, ServiceTokenError> {
         let iat = now.timestamp();
         let lifetime = lifetime_seconds.min(MAX_LIFETIME_SECONDS) as i64;
@@ -225,8 +225,8 @@ mod tests {
         assert_eq!(decoded.claims, expected);
         assert_eq!(decoded.header.kid.as_ref(), Some(&vector.kid));
 
-        let issued_at = DateTime::from_timestamp(expected.iat, 0).unwrap();
-        let authorization_expiry = DateTime::from_timestamp(expected.exp, 0).unwrap();
+        let issued_at = Timestamp::from_timestamp(expected.iat, 0).unwrap();
+        let authorization_expiry = Timestamp::from_timestamp(expected.exp, 0).unwrap();
         let signer = ServiceTokenSigner::new(
             expected.iss.clone(),
             vector.kid,

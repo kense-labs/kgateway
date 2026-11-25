@@ -404,7 +404,7 @@ fn unacknowledged_manifest_cursor() -> ManifestCursor {
 #[serde(deny_unknown_fields)]
 struct EpochDescriptor {
     boot_epoch: Uuid,
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: crate::time::Timestamp,
     file: String,
     #[serde(default = "first_manifest_sequence")]
     first_sequence: ManifestSequence,
@@ -433,7 +433,7 @@ struct SegmentHeader {
     schema: String,
     gateway_id: Uuid,
     boot_epoch: Uuid,
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: crate::time::Timestamp,
     #[serde(default = "first_sequence")]
     first_sequence: u64,
 }

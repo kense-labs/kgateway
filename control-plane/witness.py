@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+import sqlite_journal
 from audit_anchor import TENANT, canonical, receipt_body, validate
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -42,7 +43,7 @@ class Archive:
         if state_file.stat().st_mode & 0o077:
             raise ValueError("audit witness state must be restricted to its owner")
         with closing(self.connect()) as db:
-            db.execute("PRAGMA journal_mode = WAL")
+            sqlite_journal.configure(db)
             db.execute("""CREATE TABLE IF NOT EXISTS anchors (
                 tenant TEXT NOT NULL, sequence INTEGER NOT NULL, digest TEXT NOT NULL,
                 previous TEXT NOT NULL, record BLOB NOT NULL, receipt BLOB NOT NULL,
