@@ -62,23 +62,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          run_id="$(
+          candidate_runs="$(
             gh api --method GET \
               "/repos/${GITHUB_REPOSITORY}/actions/workflows/benchmarks.yml/runs" \
               -f branch=main \
-              -f per_page=100 \
-              --jq ".workflow_runs[] | select(
-                .head_sha == \"${GITHUB_SHA}\" and
-                .status == \"completed\" and
-                .conclusion == \"success\"
-              ) | .id" \
-              | head -n 1
+              -f head_sha="${GITHUB_SHA}" \
+              --jq '.workflow_runs[].id'
           )"
-          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
-            echo "::error::No successful main Performance Baseline run exists for $GITHUB_SHA"
-            exit 1
-          fi
-          echo "Verified Performance Baseline run $run_id for $GITHUB_SHA"
+          while IFS= read -r run_id; do
+            [[ "$run_id" =~ ^[0-9]+$ ]] || continue
+            benchmark_job="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?filter=latest" \
+              --jq '.jobs[] | select(.name == "Criterion baseline" and .conclusion == "success") | .id')"
+            if [[ "$benchmark_job" =~ ^[0-9]+$ ]]; then
+              echo "Verified Performance Baseline job $benchmark_job in run $run_id for $GITHUB_SHA"
+              exit 0
+            fi
+          done <<< "$candidate_runs"
+          echo "::error::No successful main Criterion baseline job exists for $GITHUB_SHA"
+          exit 1
 
   # ───────────────────────────────────────────────
   # Build cross-compiled binaries
