@@ -1,0 +1,96 @@
+name: Publish v1.1.1 release images
+on:
+  push:
+    branches: [ci/v1.1.1-oci]
+permissions:
+  actions: read
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_REVISION: cca4d867eed483af5e799e2c283093d9aee2ba89
+      GATEWAY_IMAGE: ghcr.io/kense-labs/kgateway
+      CONTROL_IMAGE: ghcr.io/kense-labs/kgateway-control
+      VERSION: 1.1.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cca4d867eed483af5e799e2c283093d9aee2ba89
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 45655137446
+          github-token: ${{ github.token }}
+          pattern: '*-unknown-linux-musl'
+          path: archives
+
+      - name: Verify and extract the Linux release archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_REVISION"
+          for arch in x86_64 aarch64; do
+            context="$RUNNER_TEMP/kgateway-$arch"
+            mkdir -p "$context"
+            cp Dockerfile "$context/"
+            (
+              cd "archives/$arch-unknown-linux-musl"
+              sha256sum --check --strict "kgateway-$VERSION-linux-$(if [[ "$arch" == aarch64 ]]; then echo arm64; else echo x86_64; fi)-musl.tar.gz.sha256"
+              tar -xzf ./*.tar.gz -C "$context" kgateway
+            )
+          done
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish the Linux x64 gateway image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ runner.temp }}/kgateway-x86_64
+          platforms: linux/amd64
+          tags: ${{ env.GATEWAY_IMAGE }}:${{ env.VERSION }}-amd64
+          labels: |
+            org.opencontainers.image.source=https://github.com/kense-labs/kgateway
+            org.opencontainers.image.revision=${{ env.RELEASE_REVISION }}
+          provenance: false
+          push: true
+
+      - name: Publish the Linux ARM64 gateway image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ runner.temp }}/kgateway-aarch64
+          platforms: linux/arm64
+          tags: ${{ env.GATEWAY_IMAGE }}:${{ env.VERSION }}-arm64
+          labels: |
+            org.opencontainers.image.source=https://github.com/kense-labs/kgateway
+            org.opencontainers.image.revision=${{ env.RELEASE_REVISION }}
+          provenance: false
+          push: true
+
+      - name: Publish the gateway manifest
+        run: |
+          docker buildx imagetools create \
+            -t "$GATEWAY_IMAGE:$VERSION" -t "$GATEWAY_IMAGE:latest" \
+            "$GATEWAY_IMAGE:$VERSION-amd64" "$GATEWAY_IMAGE:$VERSION-arm64"
+          docker buildx imagetools inspect "$GATEWAY_IMAGE:$VERSION"
+
+      - name: Publish the control plane image
+        uses: docker/build-push-action@v6
+        with:
+          context: control-plane
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.CONTROL_IMAGE }}:${{ env.VERSION }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/kense-labs/kgateway
+            org.opencontainers.image.revision=${{ env.RELEASE_REVISION }}
+          provenance: false
+          push: true
