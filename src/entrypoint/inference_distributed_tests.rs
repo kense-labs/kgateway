@@ -1770,8 +1770,9 @@ async fn managed_distributed_sse_idle_timeout_aborts_both_workers_releases_admis
     );
     enable_distributed_scheduling(&mut config, prefill_address, decode_address);
     let service = config.services.get_mut("model-service").unwrap();
-    service.load_balancer.stream_idle_timeout = "25ms".into();
-    service.load_balancer.stream_total_timeout = "1s".into();
+    // Allow the client to observe the first chunk and probe admission on a busy runner.
+    service.load_balancer.stream_idle_timeout = "500ms".into();
+    service.load_balancer.stream_total_timeout = "5s".into();
     set_limits(
         &mut config,
         InferenceLimitsConfig {
