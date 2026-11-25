@@ -1,0 +1,28 @@
+name: Verify the released Intel macOS archive
+on:
+  push:
+    branches: [ci/v1.1.1-intel-smoke]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    env:
+      EXPECTED_SHA256: "521592d83f38157942c2407d274187e238d2b42ccac6b37f39f7d79b21abebd3"
+      RELEASE_REVISION: "cca4d867eed483af5e799e2c283093d9aee2ba89"
+    steps:
+      - name: Verify and run the published Intel binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          archive=kgateway-1.1.1-darwin-x86_64.tar.gz
+          curl --fail --location --retry 3 \
+            "https://github.com/kense-labs/kgateway/releases/download/v1.1.1/$archive" \
+            --output "$archive"
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$archive" | shasum -a 256 -c
+          tar -xzf "$archive" kgateway
+          reported=$(./kgateway --version)
+          test "$reported" = "kgateway 1.1.1 $RELEASE_REVISION"
+          printf '%s\n' "$reported"
