@@ -205,7 +205,7 @@ jobs:
           cp install.sh install.ps1 _site/
 
       - name: Upload website artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -222,4 +222,4 @@ jobs:
     steps:
       - name: Deploy benchmark data
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
