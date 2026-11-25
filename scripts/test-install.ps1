@@ -15,7 +15,7 @@ $server = $null
 try {
     if (-not $Version) {
         $binaryVersion = (& $Binary --version 2>&1 | Out-String).Trim()
-        if ($binaryVersion -notmatch '^kgateway\s+(.+)$') {
+        if ($binaryVersion -notmatch '^kgateway\s+(\d+\.\d+\.\d+)(?:\s+[0-9a-f]{7,40})?$') {
             throw "Binary did not report a usable version: $binaryVersion"
         }
         $Version = $Matches[1]
@@ -81,7 +81,8 @@ try {
         throw "Installer did not create $installedBinary"
     }
     $reportedVersion = (& $installedBinary --version 2>&1 | Out-String).Trim()
-    if ($reportedVersion -ne "kgateway $Version") {
+    $expectedVersion = '^kgateway\s+' + [regex]::Escape($Version) + '(?:\s+[0-9a-f]{7,40})?$'
+    if ($reportedVersion -notmatch $expectedVersion) {
         throw "Installed binary reported an unexpected version: $reportedVersion"
     }
 
@@ -90,7 +91,7 @@ try {
     & $installer -InstallDir $latestInstallDir -NoModifyPath
     $latestBinary = Join-Path $latestInstallDir "kgateway.exe"
     $latestReportedVersion = (& $latestBinary --version 2>&1 | Out-String).Trim()
-    if ($latestReportedVersion -ne "kgateway $Version") {
+    if ($latestReportedVersion -notmatch $expectedVersion) {
         throw "Latest release resolution installed an unexpected version: $latestReportedVersion"
     }
 

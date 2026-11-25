@@ -197,15 +197,18 @@ def consumer(
                 }
             )
         )
+        workload_env = {
+            "KENSE_VAULT_CONSUMER_TOKEN": credential,
+            "KENSE_OPENBAO_DECRYPT_TOKEN": kms.decrypt_token,
+            "PYTHONUNBUFFERED": "1",
+        }
+        if "LD_LIBRARY_PATH" in os.environ:
+            workload_env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH"]
         with process(
             sys.executable,
             [str(Path(__file__).resolve()), str(config)],
             directory / "service.log",
-            {
-                "KENSE_VAULT_CONSUMER_TOKEN": credential,
-                "KENSE_OPENBAO_DECRYPT_TOKEN": kms.decrypt_token,
-                "PYTHONUNBUFFERED": "1",
-            },
+            workload_env,
         ) as child:
 
             def ready_port():

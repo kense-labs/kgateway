@@ -102,15 +102,9 @@ async fn main() -> kgateway::Result<()> {
 
     // Handle update subcommand early
     if matches!(cli.command, Some(Commands::Update)) {
-        return a3s_updater::run_update(&a3s_updater::UpdateConfig {
-            binary_name: "kgateway",
-            crate_name: "kgateway",
-            current_version: env!("CARGO_PKG_VERSION"),
-            github_owner: "kense-labs",
-            github_repo: "kgateway",
-        })
-        .await
-        .map_err(|e| kgateway::GatewayError::Other(e.to_string()));
+        return update_gateway()
+            .await
+            .map_err(|error| kgateway::GatewayError::Other(error.to_string()));
     }
 
     // Handle validate subcommand
@@ -244,6 +238,63 @@ async fn main() -> kgateway::Result<()> {
     // Wait for shutdown signal
     gateway.wait_for_shutdown().await;
 
+    Ok(())
+}
+
+async fn update_gateway() -> Result<(), self_update::errors::Error> {
+    const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+    let os = match std::env::consts::OS {
+        "macos" => "darwin",
+        os => os,
+    };
+    let architecture = match std::env::consts::ARCH {
+        "aarch64" => "arm64",
+        arch => arch,
+    };
+    let extension = if cfg!(windows) {
+        ".zip"
+    } else if cfg!(target_env = "musl") {
+        "-musl.tar.gz"
+    } else {
+        ".tar.gz"
+    };
+    let suffix = format!("-{os}-{architecture}{extension}");
+
+    let mut update = self_update::backends::github::Update::configure();
+    update
+        .repo_owner("kense-labs")
+        .repo_name("kgateway")
+        .bin_name("kgateway")
+        .current_version(CURRENT_VERSION)
+        .checksum_from_asset("SHA256SUMS")
+        .no_confirm(true)
+        .asset_matcher(move |assets| {
+            assets
+                .iter()
+                .find(|asset| {
+                    asset.name().starts_with("kgateway-") && asset.name().ends_with(&suffix)
+                })
+                .cloned()
+        });
+    if let Ok(base) = std::env::var("KGATEWAY_GITHUB_API_BASE")
+        .or_else(|_| std::env::var("A3S_UPDATER_GITHUB_API_BASE"))
+    {
+        update.api_base_url(base.trim_end_matches('/'));
+    }
+    let releases = update.build_async()?.get_latest_release_async().await?;
+    let latest = releases
+        .latest()
+        .ok_or_else(self_update::errors::Error::no_release_found)?;
+    if !self_update::version::bump_is_greater(CURRENT_VERSION, latest.version())? {
+        println!("Already up to date (v{CURRENT_VERSION}).");
+        return Ok(());
+    }
+    let status = update
+        .release_tag(format!("v{}", latest.version()))
+        .build_async()?
+        .update_async()
+        .await?;
+    println!("Updated kgateway to v{}.", status.version());
     Ok(())
 }
 

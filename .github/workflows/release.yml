@@ -229,6 +229,7 @@ jobs:
           mkdir release
           find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) \
             -exec cp {} release/ \;
+          cat release/*.sha256 > release/SHA256SUMS
           ls -lh release/
 
       - name: Generate release notes

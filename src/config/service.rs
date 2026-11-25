@@ -82,7 +82,7 @@ pub fn parse_declared_priority(raw: Option<&str>) -> Result<i32, String> {
 
 /// Parse an optional declared upstream request timeout.
 ///
-/// Absent/`None` defaults to [`DEFAULT_REQUEST_TIMEOUT`] (`30s`). A present but
+/// Absent/`None` defaults to 30 seconds. A present but
 /// empty or unparseable value fails closed so Ingress annotations cannot
 /// silently substitute the default when the operator declared a timeout.
 pub fn parse_declared_request_timeout(raw: Option<&str>) -> Result<String, String> {
