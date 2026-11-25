@@ -632,7 +632,7 @@ impl super::GatewayReloadHandle {
         // log "started".
         let client = crate::provider::kubernetes::prepare_kubernetes_client().await?;
         let probe_timeout =
-            std::time::Duration::from_secs(k8s_config.watch_interval_secs.min(30).max(1));
+            std::time::Duration::from_secs(k8s_config.watch_interval_secs.clamp(1, 30));
         crate::provider::kubernetes::probe_kubernetes_provider_with_client(
             &client,
             k8s_config,

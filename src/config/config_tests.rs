@@ -1,14 +1,11 @@
 use super::*;
+#[cfg(feature = "kube")]
+use crate::provider::kubernetes::KUBECONFIG_ENV_LOCK;
 use std::path::Path;
 
 #[cfg(feature = "kube")]
-fn lock_kubeconfig_env() -> std::sync::MutexGuard<'static, ()> {
-    // All tests that mutate KUBECONFIG must share one lock — parallel tests
-    // with separate mutexes race and soft-pass against each other's clusters.
-    static KUBECONFIG_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    KUBECONFIG_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+fn lock_kubeconfig_env() -> tokio::sync::MutexGuard<'static, ()> {
+    KUBECONFIG_ENV_LOCK.blocking_lock()
 }
 
 #[test]
@@ -2428,7 +2425,7 @@ async fn validate_activation_probes_k8s_scale_subresource() {
     use std::convert::Infallible;
     use tokio::net::TcpListener;
 
-    let _guard = lock_kubeconfig_env();
+    let _guard = KUBECONFIG_ENV_LOCK.lock().await;
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -2589,7 +2586,7 @@ async fn validate_activation_probes_kubernetes_ingress_list() {
     use std::convert::Infallible;
     use tokio::net::TcpListener;
 
-    let _guard = lock_kubeconfig_env();
+    let _guard = KUBECONFIG_ENV_LOCK.lock().await;
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();

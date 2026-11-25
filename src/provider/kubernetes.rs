@@ -20,6 +20,9 @@ use std::future::Future;
 #[cfg(feature = "kube")]
 use std::pin::Pin;
 
+#[cfg(all(test, feature = "kube"))]
+pub(crate) static KUBECONFIG_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 // -----------------------------------------------------------------------
 // Ingress model — mirrors K8s networking.k8s.io/v1/Ingress
 // Defined locally so conversion tests work without the `kube` feature.
@@ -576,7 +579,7 @@ pub(crate) fn validate_kubernetes_provider_activation(
 ) -> crate::error::Result<()> {
     use crate::error::GatewayError;
 
-    let timeout = std::time::Duration::from_secs(config.watch_interval_secs.min(30).max(1));
+    let timeout = std::time::Duration::from_secs(config.watch_interval_secs.clamp(1, 30));
     let config = config.clone();
     match tokio::runtime::Handle::try_current() {
         Ok(handle)
@@ -943,10 +946,7 @@ mod prepared_client_tests {
 
     #[tokio::test]
     async fn ingress_watcher_keeps_running_with_prepared_client_when_kubeconfig_missing() {
-        static KUBECONFIG_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let _guard = KUBECONFIG_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = KUBECONFIG_ENV_LOCK.lock().await;
         let directory = tempfile::tempdir().unwrap();
         let previous = std::env::var_os("KUBECONFIG");
         std::env::set_var(
@@ -989,10 +989,7 @@ mod prepared_client_tests {
     fn poll_failure_rebuild_err_discards_prior_client() {
         let prior = "poisoned-client";
         let rebuilt: Result<&str, &str> = Err("kubeconfig missing");
-        let next = match rebuilt {
-            Ok(client) => Some(client),
-            Err(_) => None,
-        };
+        let next = rebuilt.ok();
         assert!(next.is_none());
         assert_ne!(next, Some(prior));
     }
